@@ -5,6 +5,7 @@
 #include <new>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include <csignal>
 #include <fcntl.h>
@@ -53,12 +54,37 @@ static bool returns_early(Stack& s) {
     return false;
 }
 
+// Counts how many Trackers are currently alive, to check destructors really run.
+struct Tracker {
+    static inline int alive = 0;
+    int id;
+    explicit Tracker(int i) : id(i) { ++alive; }
+    ~Tracker() { --alive; }
+};
+
+// A type whose constructor always throws.
+struct Thrower {
+    Thrower() { throw std::runtime_error("constructor failed"); }
+    ~Thrower() {}
+};
+
+// A plain struct with no destructor: make() should add no note for it.
+struct Point { double x, y; };
+
+// rule is enforced at compile time.
+template <class T>
+concept CanMakeArray = requires(Stack& s) { s.make_array<T>(1); };
+
+static_assert(CanMakeArray<int>);
+static_assert(CanMakeArray<Point>);
+static_assert(!CanMakeArray<std::string>);
+
 static bool is_aligned(const void* p, std::size_t align) {
     return reinterpret_cast<std::uintptr_t>(p) % align == 0;
 }
 
 int main() {
-    std::setvbuf(stdout, nullptr, _IONBF, 0);   // unbuffered: output survives a crash
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
     const std::size_t page = topstack::os::page_size();
 
     // ---------- create ----------
@@ -158,7 +184,7 @@ int main() {
         CHECK(r.error == AllocError::OutOfReserve);
         CHECK(s->used() <= s->reserved());
         CHECK(count == (1 << 20) / 1000);
-        CHECK(s->reserved() - s->used() < 1000);
+        CHECK(s->reserved() - s->used() < 1000);   // what is left is too small for another
     }
 
     // A request bigger than the whole reservation fails cleanly.
@@ -284,7 +310,7 @@ int main() {
         s->add_cleanup(nullptr, [](void*) { cleanup_log[cleanup_count++] = 3; });
         s->rewind(inner);
         CHECK(cleanup_count == 2);
-        s->rewind(inner);                 // nothing new since: runs nothing
+        s->rewind(inner);
         CHECK(cleanup_count == 2);
         s->rewind(outer);
         CHECK(cleanup_count == 3 && cleanup_log[2] == 1);
@@ -308,7 +334,7 @@ int main() {
         {
             topstack::Scope scope(*s);
             void* mem = s->alloc(sizeof(std::string), alignof(std::string));
-            auto* str = new (mem) std::string(100, 'x');   // long enough to use the heap
+            auto* str = new (mem) std::string(100, 'x');
             s->add_cleanup(str, [](void* p) { static_cast<std::string*>(p)->~basic_string(); });
             CHECK(str->size() == 100);
         }
@@ -329,7 +355,7 @@ int main() {
     }
 
     // Bad rewinds are caught by the asserts (debug builds only).
-    CHECK(aborts([] {                           // a stale mark: already rewound past it
+    CHECK(aborts([] {
         auto [s, err] = Stack::create();
         Stack::Mark outer = s->mark();
         (void)s->alloc(100);
@@ -337,13 +363,124 @@ int main() {
         s->rewind(outer);
         s->rewind(inner);
     }));
-    CHECK(aborts([] {                           // a mark from a different stack
+    CHECK(aborts([] {
         auto [a, e1] = Stack::create();
         auto [b, e2] = Stack::create();
         Stack::Mark m = a->mark();
         b->rewind(m);
     }));
 #endif
+
+    // ---------- make ----------
+
+    // A trivial type: constructed with its arguments, aligned, and no note added.
+    {
+        auto [s, err] = Stack::create();
+        (void)s->alloc(1, 1);
+        Point* p = s->make<Point>(1.5, 2.5);
+        CHECK(p != nullptr);
+        CHECK(is_aligned(p, alignof(Point)));
+        CHECK(p->x == 1.5 && p->y == 2.5);
+        CHECK(s->note_count() == 0);
+    }
+
+    // Constructor arguments are forwarded as given.
+    {
+        auto [s, err] = Stack::create();
+        auto* pair = s->make<std::pair<int, std::string>>(7, "seven");
+        CHECK(pair->first == 7 && pair->second == "seven");
+    }
+
+    // A type with a destructor gets a note, and rewind destroys it.
+    {
+        auto [s, err] = Stack::create();
+        Tracker::alive = 0;
+        {
+            topstack::Scope scope(*s);
+            Tracker* a = s->make<Tracker>(1);
+            Tracker* b = s->make<Tracker>(2);
+            CHECK(a->id == 1 && b->id == 2);
+            CHECK(Tracker::alive == 2);
+            CHECK(s->note_count() == 2);
+        }
+        CHECK(Tracker::alive == 0);
+        CHECK(s->note_count() == 0);
+    }
+
+    // A long std::string through make (run under ASan to confirm no leak).
+    {
+        auto [s, err] = Stack::create();
+        topstack::Scope scope(*s);
+        std::string* str = s->make<std::string>(200, 'y');
+        CHECK(str->size() == 200);
+    }
+
+    // If the constructor throws, the exception reaches the caller and no note is added.
+    {
+        auto [s, err] = Stack::create();
+        bool caught = false;
+        try {
+            (void)s->make<Thrower>();
+        } catch (const std::runtime_error&) {
+            caught = true;
+        }
+        CHECK(caught);
+        CHECK(s->note_count() == 0);
+    }
+
+    // try_make reports why it failed.
+    {
+        auto [s, err] = Stack::create(4096);
+        struct Big { char bytes[100'000]; };
+        auto r = s->try_make<Big>();
+        CHECK(r.ptr == nullptr);
+        CHECK(r.error == AllocError::OutOfReserve);
+    }
+
+    // ---------- make_array ----------
+
+    // An array of n elements: aligned, writable, and the right size.
+    {
+        auto [s, err] = Stack::create();
+        (void)s->alloc(1, 1);
+        std::size_t before = s->used();
+        double* xs = s->make_array<double>(1000);
+        CHECK(xs != nullptr);
+        CHECK(is_aligned(xs, alignof(double)));
+        for (int i = 0; i < 1000; ++i) xs[i] = i * 0.5;
+        CHECK(xs[999] == 499.5);
+        CHECK(s->used() - before >= 1000 * sizeof(double));
+        CHECK(s->note_count() == 0);
+    }
+
+    // A count so large that n * sizeof(T) would overflow fails cleanly.
+    {
+        auto [s, err] = Stack::create();
+        auto r = s->try_make_array<double>(SIZE_MAX / 4);
+        CHECK(r.ptr == nullptr);
+        CHECK(r.error == AllocError::OutOfReserve);
+        CHECK(s->used() == 0);
+    }
+
+    // An empty array is a valid pointer that uses no space.
+    {
+        auto [s, err] = Stack::create();
+        int* none = s->make_array<int>(0);
+        CHECK(none != nullptr);
+        CHECK(s->used() == 0);
+    }
+
+    // Destroying a stack runs the cleanups nobody rewound.
+    {
+        Tracker::alive = 0;
+        {
+            auto [s, err] = Stack::create();
+            (void)s->make<Tracker>(1);
+            (void)s->make<Tracker>(2);
+            CHECK(Tracker::alive == 2);
+        }   // the stack is destroyed here, without any rewind
+        CHECK(Tracker::alive == 0);
+    }
 
     std::printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
     return failures ? 1 : 0;

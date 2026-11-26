@@ -7,6 +7,9 @@
 #include <cassert>
 #include <bit>
 #include <vector>
+#include <new>
+#include <type_traits>
+#include <utility>
 
 #if defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
@@ -110,6 +113,12 @@ struct Note {
     void (*destroy)(void*);
 };
 
+template <class T>
+struct MakeResult {
+    T* ptr;
+    AllocError error;
+};
+
 class Stack {
     public:
         struct Mark {
@@ -138,8 +147,50 @@ class Stack {
         std::size_t reserved() const {return limit_;};
         std::size_t commit_step() const { return commit_step_; }
         [[nodiscard]] Mark mark() const {return {top_, notes_.size(), this}; }
+        std::size_t note_count() const { return notes_.size(); }
         void add_cleanup(void* object, void (*destroy)(void*)) { notes_.push_back({object, destroy}); }
         inline void rewind(Mark m);
+        template <class T, class... Args>
+        [[nodiscard]] MakeResult<T> try_make(Args&&... args) {
+            AllocResult r = try_alloc(sizeof(T), alignof(T));
+            if (!r.ptr) {
+                return {nullptr, r.error};
+            }
+
+            T* obj = new (r.ptr) T(std::forward<Args>(args)...);
+            if constexpr (!std::is_trivially_destructible_v<T>) {
+                try {
+                    add_cleanup(obj,  [](void* p) { static_cast<T*>(p)->~T(); });
+                } catch (...) {
+                    obj->~T();
+                    throw;
+                }
+            }
+            return {obj, AllocError::Ok};
+        }
+        template<class T, class... Args>
+        [[nodiscard]] T* make(Args&&... args) {
+            return try_make<T>(std::forward<Args>(args)...).ptr;
+        }
+        template<class T>
+        requires std::is_trivially_destructible_v<T>
+        [[nodiscard]] MakeResult<T> try_make_array(std::size_t n) {
+            if (n > SIZE_MAX / sizeof(T)) {
+                return {nullptr, AllocError::OutOfReserve};
+            }
+            AllocResult r = try_alloc(n * sizeof(T), alignof(T));
+            if (!r.ptr) {
+                return {nullptr, r.error};
+            }
+            T* first = static_cast<T*>(r.ptr);
+            std::uninitialized_default_construct_n(first, n);
+            return {first, AllocError::Ok};
+        }
+        template<class T>
+        requires std::is_trivially_destructible_v<T>
+        [[nodiscard]] T* make_array(std::size_t n) {
+            return try_make_array<T>(n).ptr;
+        }
     private:
         inline Stack(char* base, std::size_t reserved, std::size_t step);
 };
@@ -190,6 +241,7 @@ Stack::Stack(char* base, std::size_t reserved, std::size_t step)
 }
 
 Stack::~Stack() {
+    rewind({0, 0, this});
     os::release(base_, limit_);
 }
 
