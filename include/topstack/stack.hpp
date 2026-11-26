@@ -1,4 +1,5 @@
 #pragma once
+#include <cinttypes>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -63,14 +64,24 @@ inline void release(void* p, std::size_t bytes) {
 
 } // namespace os
 
+enum class CreateError { Ok, ZeroSize, SizeTooLarge, ZeroCommitStep, ReserveFailed };
+
+class Stack;
+
+struct [[nodiscard]] CreateResult {
+    std::unique_ptr<Stack> stack;
+    CreateError error;
+};
+
 class Stack {
     private:
         char* base_;
         std::size_t top_;
         std::size_t committed_;
         std::size_t limit_;
+        std::size_t commit_step_;
     public:
-        inline static std::unique_ptr<Stack> create(std::size_t reserve_bytes=std::size_t(2) << 30);
+        inline static CreateResult create(std::size_t reserve_bytes = std::size_t(2) << 30, std::size_t commit_step = std::size_t(64) << 10);
         inline ~Stack();
         Stack(const Stack&) = delete;
         Stack& operator=(const Stack&) = delete;
@@ -80,30 +91,39 @@ class Stack {
         std::size_t used() const { return top_;}
         std::size_t committed() const {return committed_;}
         std::size_t reserved() const {return limit_;};
+        std::size_t commit_step() const { return commit_step_; }
     private:
-        inline Stack(char* base, std::size_t reserved);
+        inline Stack(char* base, std::size_t reserved, std::size_t step);
 };
 
-std::unique_ptr<Stack> Stack::create(std::size_t size) {
+CreateResult Stack::create(std::size_t size, std::size_t step) {
+    if (step <= 0) {
+        return {nullptr, CreateError::ZeroCommitStep};
+    }
     const std::size_t page = os::page_size();
     if (size == 0) {
-        return nullptr;
+        return CreateResult(nullptr, CreateError::ZeroSize);
     } else if (size > SIZE_MAX - page) {
-        return nullptr;
+        return {nullptr, CreateError::SizeTooLarge};
     }
+    if (step > SIZE_MAX - page) {
+        return {nullptr, CreateError::SizeTooLarge};
+    }
+    step = (step + page - 1) / page * page;
     size = (size + page - 1) / page * page;
     char* base_address = static_cast<char*>(os::reserve(size));
     if (!base_address) {
-        return nullptr;
+        return {nullptr, CreateError::ReserveFailed};
     }
-    return std::unique_ptr<Stack>(new Stack(base_address, size));
+    return {std::unique_ptr<Stack>(new Stack(base_address, size, step)), CreateError::Ok};
 }
 
-Stack::Stack(char* base, std::size_t reserved)
+Stack::Stack(char* base, std::size_t reserved, std::size_t step)
     : base_(base),
       top_(0),
       committed_(0),
-      limit_(reserved)
+      limit_(reserved),
+      commit_step_(step)
 {
 
     assert(base_ != nullptr);
