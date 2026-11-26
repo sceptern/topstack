@@ -1,0 +1,8 @@
+# Build output
+build*/
+bench/bin/
+
+# Editor and tool caches
+.cache/
+compile_commands.json
+__pycache__/

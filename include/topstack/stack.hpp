@@ -20,6 +20,14 @@
 #  include <unistd.h>
 #endif
 
+#if defined(_MSC_VER)
+#  define TOPSTACK_SLOW_PATH __declspec(noinline)
+#elif defined(__clang__) && defined(__x86_64__)
+#  define TOPSTACK_SLOW_PATH [[gnu::noinline, gnu::cold, clang::preserve_all]]
+#else
+#  define TOPSTACK_SLOW_PATH [[gnu::noinline, gnu::cold]]
+#endif
+
 namespace topstack {
 
 namespace os {
@@ -193,6 +201,33 @@ class Stack {
         }
     private:
         inline Stack(char* base, std::size_t reserved, std::size_t step);
+        TOPSTACK_SLOW_PATH AllocResult try_alloc_slow(std::size_t bytes, std::size_t align) {
+            std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(base_) + top_;
+            std::uintptr_t aligned = (addr + align - 1) / align * align;
+            std::size_t padding = aligned - addr;
+            if (padding > limit_ - top_) {
+                return {nullptr, AllocError::OutOfReserve};
+            }
+            std::size_t start = top_ + padding;
+            if (bytes > limit_ - start) {
+                return {nullptr, AllocError::OutOfReserve};
+            }
+            std::size_t end = start + bytes;
+            if (end > committed_) {
+                std::size_t new_committed;
+                if (limit_ - end < commit_step_) {
+                    new_committed = limit_;
+                } else {
+                    new_committed = (end + commit_step_ - 1) / commit_step_ * commit_step_;
+                }
+                if (!os::commit(base_ + committed_, new_committed - committed_)) {
+                    return {nullptr, AllocError::CommitFailed};
+                }
+                committed_ = new_committed;
+            }
+            top_ = end;
+            return {base_ + start, AllocError::Ok};
+        }
 };
 
 class Scope {
@@ -247,31 +282,20 @@ Stack::~Stack() {
 
 inline AllocResult Stack::try_alloc(std::size_t bytes, std::size_t align) {
     assert(std::has_single_bit(align));
-    std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(base_) + top_;
-    std::uintptr_t aligned = (addr + align - 1) / align * align;
-    std::size_t padding = aligned - addr;
-    if (padding > limit_ - top_) {
-        return {nullptr, AllocError::OutOfReserve};
-    }
-    std::size_t start   = top_ + padding;
-    if (bytes > limit_ - start) {
-        return {nullptr, AllocError::OutOfReserve};
-    }
-    std::size_t end = start + bytes;
-    if (end > committed_) [[unlikely]] {
-        std::size_t new_committed;
-        if (limit_ - end < commit_step_) {
-            new_committed = limit_;
-        } else {
-            new_committed = (end + commit_step_ - 1) / commit_step_ * commit_step_;
+
+    // base_ is page-aligned and pages are at least 4 KB everywhere, so for
+    // align <= 4096 rounding the offset gives the same result as rounding the address.
+    // And committed_ <= limit_, so fitting below committed_ means fitting at all.
+    if (align <= 4096 && bytes <= (std::size_t(1) << 32)) {
+        std::size_t start = (top_ + align - 1) & ~(align - 1);
+        std::size_t end = start + bytes;
+        if (end <= committed_ && end >= start) [[likely]] {
+            top_ = end;
+            return {base_ + start, AllocError::Ok};
         }
-        if (!os::commit(base_ + committed_, new_committed - committed_)) {
-            return {nullptr, AllocError::CommitFailed};
-        }
-        committed_ = new_committed;
     }
-    top_ = end;
-    return {base_ + start, AllocError::Ok};
+
+    return try_alloc_slow(bytes, align);
 }
 
 inline void* Stack::alloc(std::size_t bytes, std::size_t align) {
