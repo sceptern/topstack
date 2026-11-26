@@ -2,8 +2,11 @@
 #include <cinttypes>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <cassert>
+#include <bit>
+#include <stop_token>
 
 #if defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
@@ -73,6 +76,36 @@ struct [[nodiscard]] CreateResult {
     CreateError error;
 };
 
+inline const char* to_string(CreateError error) {
+    switch (error) {
+        case CreateError::Ok:           return "ok";
+        case CreateError::ZeroSize: return "stack reservation of size 0!"
+                                              "create the stack with a non zero size";
+        case CreateError::SizeTooLarge: return "size too large";
+        case CreateError::ZeroCommitStep: return "no step";
+        case CreateError::ReserveFailed: return "reserve failed";
+    }
+    return "unknown error";
+}
+
+enum class AllocError { Ok, OutOfReserve, CommitFailed };
+
+struct AllocResult {
+    void* ptr;
+    AllocError error;
+};
+
+inline const char* to_string(AllocError error) {
+    switch (error) {
+        case AllocError::Ok:           return "ok";
+        case AllocError::OutOfReserve: return "stack reservation exhausted; "
+                                              "create the stack with a larger reserve_bytes";
+        case AllocError::CommitFailed: return "commit failed";
+    }
+    return "unknown error";
+}
+
+
 class Stack {
     private:
         char* base_;
@@ -86,7 +119,8 @@ class Stack {
         Stack(const Stack&) = delete;
         Stack& operator=(const Stack&) = delete;
 
-        [[nodiscard]]void* alloc(std::size_t bytes, std::size_t align=alignof(std::max_align_t));
+        [[nodiscard]] AllocResult try_alloc(std::size_t bytes, std::size_t align=alignof(std::max_align_t));
+        [[nodiscard]] void* alloc(std::size_t bytes, std::size_t align=alignof(std::max_align_t));
 
         std::size_t used() const { return top_;}
         std::size_t committed() const {return committed_;}
@@ -102,7 +136,7 @@ CreateResult Stack::create(std::size_t size, std::size_t step) {
     }
     const std::size_t page = os::page_size();
     if (size == 0) {
-        return CreateResult(nullptr, CreateError::ZeroSize);
+        return {nullptr, CreateError::ZeroSize};
     } else if (size > SIZE_MAX - page) {
         return {nullptr, CreateError::SizeTooLarge};
     }
@@ -132,6 +166,39 @@ Stack::Stack(char* base, std::size_t reserved, std::size_t step)
 
 Stack::~Stack() {
     os::release(base_, limit_);
+}
+
+inline AllocResult Stack::try_alloc(std::size_t bytes, std::size_t align) {
+    assert(std::has_single_bit(align));
+    std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(base_) + top_;
+    std::uintptr_t aligned = (addr + align - 1) / align * align;
+    std::size_t padding = aligned - addr;
+    if (padding > limit_ - top_) {
+        return {nullptr, AllocError::OutOfReserve};
+    }
+    std::size_t start   = top_ + padding;
+    if (bytes > limit_ - start) {
+        return {nullptr, AllocError::OutOfReserve};
+    }
+    std::size_t end = start + bytes;
+    if (end > committed_) [[unlikely]] {
+        std::size_t new_committed;
+        if (limit_ - end < commit_step_) {
+            new_committed = limit_;
+        } else {
+            new_committed = (end + commit_step_ - 1) / commit_step_ * commit_step_;
+        }
+        if (!os::commit(base_ + committed_, new_committed - committed_)) {
+            return {nullptr, AllocError::CommitFailed};
+        }
+        committed_ = new_committed;
+    }
+    top_ = end;
+    return {base_ + start, AllocError::Ok};
+}
+
+inline void* Stack::alloc(std::size_t bytes, std::size_t align) {
+    return try_alloc(bytes, align).ptr;
 }
 
 } // end of topstack namespace
