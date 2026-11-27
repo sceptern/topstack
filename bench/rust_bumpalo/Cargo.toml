@@ -1,0 +1,16 @@
+# Rust versions of the benchmarks using bumpalo, the arena crate real Rust code
+# uses. The binaries' sources are generated into src/bin/ by compare_bumpalo.sh,
+# from the templates in templates/, with the benchmark sizes filled in.
+[package]
+name = "rust_bumpalo"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bumpalo = "=3.20.4"
+
+# The same settings as Goose's Rust rows: rustc -O (opt-level 2), one codegen unit.
+[profile.release]
+opt-level = 2
+codegen-units = 1

@@ -1,0 +1,28 @@
+topstack
+Copyright 2026 Farhan
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This project follows the memory design of Goose (https://github.com/aardappel/goose):
+data stacks, relative references and stack assignment.
+
+Files in bench/ taken from Goose's benchmark suite (Apache License 2.0, see
+bench/LICENSE-goose):
+
+  Copied unchanged:
+    bench/bench.h, bench/push.goose, bench/rng.goose, bench/bintrees.cpp,
+    bench/push.cpp, and (copied in by compare_more.sh) bench/tree.cpp,
+    bench/interp.cpp, bench/sexp.cpp
+
+  Modified (benchmark size changed):
+    bench/bintrees.goose
+
+  Written for topstack, based on Goose's C++ and Rust versions of the same
+  benchmarks (same algorithms, inputs and output):
+    bench/bintrees_topstack.cpp, bench/bintrees_ref.cpp, bench/bintrees_thread.cpp,
+    bench/bintrees_pmr.cpp, bench/bintrees_llvm.cpp, bench/push_topstack.cpp,
+    bench/push_pinned.cpp, bench/tree_topstack.cpp, bench/interp_topstack.cpp,
+    bench/sexp_topstack.cpp, bench/rust_bumpalo/templates/*.rs
+
+The comparison scripts also copy further Goose sources into bench/bin/ at run
+time; those copies are not part of this repository.

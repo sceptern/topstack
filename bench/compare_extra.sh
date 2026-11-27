@@ -4,11 +4,16 @@
 #   sudo apt install llvm-18-dev
 #   git clone https://github.com/mknejp/vmcontainer.git ~/programming/vmcontainer
 # Run from the bench folder, after compare.sh (it reuses bin/cmp/bt_goose etc.).
+# C++ programs link the C++ standard library statically (-static-libstdc++), as
+# Rust does with its own: loading libstdc++.so costs every C++ program about
+# 2.4 MB of memory that has nothing to do with what is being measured.
 set -e
 VMC=${VMC:-$HOME/programming/vmcontainer}
 B=bin/cmp
-F="-std=c++20 -O2 -DNDEBUG"
-LLVM="-I$(llvm-config-18 --includedir) -L$(llvm-config-18 --libdir) -lLLVM-18"
+F="-std=c++20 -O2 -DNDEBUG -static-libstdc++ -static-libgcc"
+# LLVM's headers, plus llvm_shim.cpp for the three library functions the allocator
+# needs, instead of linking all of libLLVM (which alone loads ~40 MB).
+LLVM="-I$(llvm-config-18 --includedir) llvm_shim.cpp"
 VM="-I $VMC/lib/include $VMC/lib/src/vmcontainer/vm.cpp"
 mkdir -p $B
 for cxx in g++ clang++; do

@@ -168,10 +168,10 @@ int main() {
 
     // Stack 0 can be given its own size.
     {
-        StackSet set(std::size_t(8) << 30);
-        CHECK(set.plain()->reserved() >= (std::size_t(8) << 30));
+        StackSet set(std::size_t(1) << 30, std::size_t(256) << 20);   // 1 GB plain, 256 MB buffers
+        CHECK(set.plain()->reserved() == (std::size_t(1) << 30));
         int i = set.take();
-        CHECK(set.at(i).reserved() < (std::size_t(8) << 30));
+        CHECK(set.at(i).reserved() == (std::size_t(256) << 20));
     }
 
     // Each thread has its own default set.

@@ -44,8 +44,31 @@ struct Tree { Ref<Node> l, r; };
 int main() {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-    CHECK(sizeof(Ref<Node>) == 4);
+    CHECK(sizeof(Ref<Node>) == 4 && alignof(Ref<Node>) == 1);
     CHECK(sizeof(Tree) == 8);
+
+    // Packing: a tag next to Refs and Packed fields leaves no padding.
+    {
+        struct Expr { std::uint8_t tag; };
+        struct Bin : Expr { Ref<Expr> l, r; };
+        struct Num : Expr { topstack::Packed<std::int32_t> v; };
+        CHECK(sizeof(Bin) == 9 && sizeof(Num) == 5 && alignof(Bin) == 1);
+
+        topstack::Packed<std::int32_t> p = -123456;
+        std::int32_t back = p;
+        CHECK(back == -123456);
+        p = 42;
+        CHECK(p + 1 == 43);
+
+        // Nodes made back to back, at odd addresses, still link correctly.
+        topstack::Scope scope;
+        Num* a = topstack::make<Num>(Expr{0}, 7);
+        Num* b = topstack::make<Num>(Expr{0}, 8);
+        Bin* c = topstack::make<Bin>(Expr{1}, a, b);
+        CHECK(reinterpret_cast<char*>(b) - reinterpret_cast<char*>(a) == 5);
+        CHECK(reinterpret_cast<char*>(c) - reinterpret_cast<char*>(b) == 5);
+        CHECK(static_cast<Num*>(c->l.get())->v == 7 && static_cast<Num*>(c->r.get())->v == 8);
+    }
 
     // Null by default, from nullptr, and after assigning nullptr.
     {

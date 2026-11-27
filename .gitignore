@@ -1,6 +1,7 @@
 # Build output
 build*/
 bench/bin/
+bench/results/
 
 # Editor and tool caches
 .cache/

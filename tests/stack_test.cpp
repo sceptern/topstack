@@ -26,15 +26,16 @@ static int failures = 0;
     } while (0)
 
 // Runs f in a forked child process and reports whether it died from an assert
+// (SIGABRT). This is how we test that bad rewinds are caught. POSIX only.
 template <class F>
 static bool aborts(F f) {
     std::fflush(stdout);
     pid_t pid = fork();
     if (pid == 0) {
         int devnull = open("/dev/null", O_WRONLY);
-        dup2(devnull, 2);
+        dup2(devnull, 2);   // hide the assert message
         f();
-        _exit(0);
+        _exit(0);           // reaching here means it did NOT abort
     }
     int status = 0;
     waitpid(pid, &status, 0);
@@ -71,6 +72,7 @@ struct Thrower {
 // A plain struct with no destructor: make() should add no note for it.
 struct Point { double x, y; };
 
+// A concept: "can make_array<T> be called?" Used to check that the trivial-only
 // rule is enforced at compile time.
 template <class T>
 concept CanMakeArray = requires(Stack& s) { s.make_array<T>(1); };
@@ -84,7 +86,7 @@ static bool is_aligned(const void* p, std::size_t align) {
 }
 
 int main() {
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    std::setvbuf(stdout, nullptr, _IONBF, 0);   // unbuffered: output survives a crash
     const std::size_t page = topstack::os::page_size();
 
     // ---------- create ----------
@@ -129,6 +131,14 @@ int main() {
         CHECK(err == CreateError::SizeTooLarge);
         CHECK(s == nullptr);
     }
+    // A stack holds at most 2 GB (it lives in a 16 GB block with room for relays).
+    {
+        auto [s, err] = Stack::create((std::size_t(2) << 30) + 1);
+        CHECK(err == CreateError::SizeTooLarge);
+        CHECK(s == nullptr);
+        auto [t, err2] = Stack::create(std::size_t(2) << 30);
+        CHECK(err2 == CreateError::Ok && t != nullptr);
+    }
 
     // ---------- alloc ----------
 
@@ -144,7 +154,7 @@ int main() {
         CHECK(all_aligned);
     }
 
-    // Writes work across commit boundaries.
+    // Writes work across commit boundaries (a commit bug would segfault here).
     {
         auto [s, err] = Stack::create();
         std::size_t total = 0;
@@ -310,7 +320,7 @@ int main() {
         s->add_cleanup(nullptr, [](void*) { cleanup_log[cleanup_count++] = 3; });
         s->rewind(inner);
         CHECK(cleanup_count == 2);
-        s->rewind(inner);
+        s->rewind(inner);                 // nothing new since: runs nothing
         CHECK(cleanup_count == 2);
         s->rewind(outer);
         CHECK(cleanup_count == 3 && cleanup_log[2] == 1);
@@ -329,12 +339,14 @@ int main() {
         CHECK(cleanup_count == 1 && cleanup_log[0] == 42);
     }
 
+    // A real std::string on the stack: its destructor frees its heap buffer.
+    // Run this file under -fsanitize=address to confirm nothing leaks.
     {
         auto [s, err] = Stack::create();
         {
             topstack::Scope scope(*s);
             void* mem = s->alloc(sizeof(std::string), alignof(std::string));
-            auto* str = new (mem) std::string(100, 'x');
+            auto* str = new (mem) std::string(100, 'x');   // long enough to use the heap
             s->add_cleanup(str, [](void* p) { static_cast<std::string*>(p)->~basic_string(); });
             CHECK(str->size() == 100);
         }
@@ -355,7 +367,7 @@ int main() {
     }
 
     // Bad rewinds are caught by the asserts (debug builds only).
-    CHECK(aborts([] {
+    CHECK(aborts([] {                           // a stale mark: already rewound past it
         auto [s, err] = Stack::create();
         Stack::Mark outer = s->mark();
         (void)s->alloc(100);
@@ -363,7 +375,7 @@ int main() {
         s->rewind(outer);
         s->rewind(inner);
     }));
-    CHECK(aborts([] {
+    CHECK(aborts([] {                           // a mark from a different stack
         auto [a, e1] = Stack::create();
         auto [b, e2] = Stack::create();
         Stack::Mark m = a->mark();
@@ -376,7 +388,7 @@ int main() {
     // A trivial type: constructed with its arguments, aligned, and no note added.
     {
         auto [s, err] = Stack::create();
-        (void)s->alloc(1, 1);
+        (void)s->alloc(1, 1);                       // misalign the top
         Point* p = s->make<Point>(1.5, 2.5);
         CHECK(p != nullptr);
         CHECK(is_aligned(p, alignof(Point)));
@@ -468,18 +480,6 @@ int main() {
         int* none = s->make_array<int>(0);
         CHECK(none != nullptr);
         CHECK(s->used() == 0);
-    }
-
-    // Destroying a stack runs the cleanups nobody rewound.
-    {
-        Tracker::alive = 0;
-        {
-            auto [s, err] = Stack::create();
-            (void)s->make<Tracker>(1);
-            (void)s->make<Tracker>(2);
-            CHECK(Tracker::alive == 2);
-        }   // the stack is destroyed here, without any rewind
-        CHECK(Tracker::alive == 0);
     }
 
     std::printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);

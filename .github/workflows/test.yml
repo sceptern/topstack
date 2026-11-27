@@ -1,0 +1,17 @@
+# Runs ./test.sh (every test, normally and with AddressSanitizer and
+# UndefinedBehaviorSanitizer) on every push and pull request.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compiler version
+        run: g++ --version
+      - name: Run tests
+        run: ./test.sh

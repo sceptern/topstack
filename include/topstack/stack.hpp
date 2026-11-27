@@ -42,16 +42,39 @@ inline std::size_t page_size() {
 #endif
 }
 
-inline void* reserve(std::size_t bytes) {
-#if defined(_WIN32)
-    return VirtualAlloc(nullptr, bytes, MEM_RESERVE, PAGE_NOACCESS);
-#else
-    void* p = mmap(nullptr, bytes, PROT_NONE,
-                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-    return p == MAP_FAILED ? nullptr : p;
-#endif
+// Every stack lives in its own block: block_size bytes of address space starting at
+// a multiple of block_size. Any address inside a stack then finds the start of its
+// block by masking off the low bits, which is how a Ref16 finds its relay tables.
+// Only address space is reserved; memory is committed as parts get used.
+inline constexpr std::size_t block_size = std::size_t(16) << 30;
+
+inline std::uintptr_t block_of(const void* p) {
+    return reinterpret_cast<std::uintptr_t>(p) & ~(block_size - 1);
 }
 
+inline void* reserve_block() {
+#if defined(_WIN32)
+    for (int attempt = 0; attempt < 16; ++attempt) {
+        void* probe = VirtualAlloc(nullptr, 2 * block_size, MEM_RESERVE, PAGE_NOACCESS);
+        if (!probe) return nullptr;
+        std::uintptr_t a = (reinterpret_cast<std::uintptr_t>(probe) + block_size - 1) & ~(block_size - 1);
+        VirtualFree(probe, 0, MEM_RELEASE);
+        void* p = VirtualAlloc(reinterpret_cast<void*>(a), block_size, MEM_RESERVE, PAGE_NOACCESS);
+        if (p) return p;
+    }
+    return nullptr;
+#else
+    void* p = mmap(nullptr, 2 * block_size, PROT_NONE,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+    if (p == MAP_FAILED) return nullptr;
+    std::uintptr_t start = reinterpret_cast<std::uintptr_t>(p);
+    std::uintptr_t a = (start + block_size - 1) & ~(block_size - 1);
+    if (a > start) munmap(p, a - start);
+    std::uintptr_t end = start + 2 * block_size;
+    if (end > a + block_size) munmap(reinterpret_cast<void*>(a + block_size), end - (a + block_size));
+    return reinterpret_cast<void*>(a);
+#endif
+}
 inline bool commit(void* p, std::size_t bytes) {
 #if defined(_WIN32)
     return VirtualAlloc(p, bytes, MEM_COMMIT, PAGE_READWRITE) != nullptr;
@@ -70,15 +93,58 @@ inline void decommit(void* p, std::size_t bytes) {
 #endif
 }
 
-inline void release(void* p, std::size_t bytes) {
+inline void release_block(void* p) {
 #if defined(_WIN32)
-    (void)bytes; VirtualFree(p, 0, MEM_RELEASE);
+    VirtualFree(p, 0, MEM_RELEASE);
 #else
-    munmap(p, bytes);
+    munmap(p, block_size);
 #endif
 }
 
 } // namespace os
+
+
+namespace relay {
+    inline constexpr std::size_t max_data    = std::size_t(2) << 30;
+    inline constexpr unsigned    region_bits = 16;
+    inline constexpr std::size_t regions     = max_data >> region_bits;
+    inline constexpr std::size_t slots       = 32768;
+    inline constexpr std::size_t dense_slots = 32;
+
+    struct Entry {
+        std::uint32_t target;
+        std::uint16_t link_pos;
+        std::uint16_t unused;
+    };
+
+    inline constexpr std::size_t counts_at = std::size_t(4) << 30;
+    inline constexpr std::size_t dense_at  = counts_at + regions * sizeof(std::uint32_t);
+    inline constexpr std::size_t big_at    = dense_at + regions * dense_slots * sizeof(Entry);
+    inline constexpr std::size_t big_bytes = slots * sizeof(Entry);
+    static_assert(big_at + regions * big_bytes <= os::block_size);
+
+    inline std::uint32_t* counts(std::uintptr_t block) {
+        return reinterpret_cast<std::uint32_t*>(block + counts_at);
+    }
+    inline Entry& entry(std::uintptr_t block, std::size_t region, std::size_t i) {
+        if (i < dense_slots) {
+            return reinterpret_cast<Entry*>(block + dense_at)[region * dense_slots + i];
+        }
+        return reinterpret_cast<Entry*>(block + big_at + region * big_bytes)[i];
+    }
+    inline bool commit_big(std::uintptr_t block, std::size_t region) {
+        return os::commit(reinterpret_cast<void*>(block + big_at + region * big_bytes), big_bytes);
+    }
+    inline void freed(char* base, std::size_t new_top, std::size_t old_top) {
+        if (old_top <= new_top) return;
+        std::size_t first = (new_top + (std::size_t(1) << region_bits) - 1) >> region_bits;
+        std::size_t last  = (old_top - 1) >> region_bits;
+        std::uint32_t* c = counts(reinterpret_cast<std::uintptr_t>(base));
+        for (std::size_t r = first; r <= last; ++r) {
+            c[r] = 0;
+        }
+    }
+}
 
 enum class CreateError { Ok, ZeroSize, SizeTooLarge, ZeroCommitStep, ReserveFailed };
 
@@ -294,7 +360,14 @@ CreateResult Stack::create(std::size_t size, std::size_t step) {
     }
     step = (step + page - 1) / page * page;
     size = (size + page - 1) / page * page;
-    char* base_address = static_cast<char*>(os::reserve(size));
+    if (size > (std::size_t(2) << 30)) {
+        return {nullptr, CreateError::SizeTooLarge};
+    }
+    char* base_address = static_cast<char*>(os::reserve_block());
+    if (!os::commit(base_address + relay::counts_at, relay::big_at - relay::counts_at)) {
+        os::release_block(base_address);
+        return {nullptr, CreateError::ReserveFailed};
+    }
     if (!base_address) {
         return {nullptr, CreateError::ReserveFailed};
     }
@@ -315,7 +388,7 @@ Stack::Stack(char* base, std::size_t reserved, std::size_t step)
 
 Stack::~Stack() {
     rewind({0, 0, this});
-    os::release(base_, limit_);
+    os::release_block(base_);
 }
 
 inline AllocResult Stack::try_alloc(std::size_t bytes, std::size_t align) {
@@ -360,6 +433,7 @@ void Stack::rewind(Mark m) {
     #ifndef NDEBUG
         std::memset(base_ + m.top_, 0xDD, top_ - m.top_);
     #endif
+    relay::freed(base_, m.top_, top_);
     top_ = m.top_;
 }
 
