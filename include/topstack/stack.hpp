@@ -127,7 +127,13 @@ struct MakeResult {
     AllocError error;
 };
 
+[[noreturn]] inline void rule_violation(const char* message) {
+    std::fprintf(stderr, "topstack rule violation: %s\n", message);
+    std::abort();
+}
+
 class Stack {
+    template <class T> friend class GrowBuf;
     public:
         struct Mark {
             std::size_t top_;
@@ -150,11 +156,11 @@ class Stack {
         [[nodiscard]] AllocResult try_alloc(std::size_t bytes, std::size_t align=alignof(std::max_align_t));
         [[nodiscard]] void* alloc(std::size_t bytes, std::size_t align=alignof(std::max_align_t));
 
-        std::size_t used() const { return top_;}
+        std::size_t used() const { return current_top(); }
         std::size_t committed() const {return committed_;}
         std::size_t reserved() const {return limit_;};
         std::size_t commit_step() const { return commit_step_; }
-        [[nodiscard]] Mark mark() const {return {top_, notes_.size(), this}; }
+         [[nodiscard]] Mark mark() const { return {current_top(), notes_.size(), this}; }
         std::size_t note_count() const { return notes_.size(); }
         void add_cleanup(void* object, void (*destroy)(void*)) { notes_.push_back({object, destroy}); }
         inline void rewind(Mark m);
@@ -201,7 +207,36 @@ class Stack {
         }
     private:
         inline Stack(char* base, std::size_t reserved, std::size_t step);
+        std::size_t current_top() const {
+            return grower_ ? static_cast<std::size_t>(grower_->end - base_) : top_;
+        }
+        inline void reclaim_top() {
+            if (grower_) {
+                top_ = static_cast<std::size_t>(grower_->end - base_);
+                grower_->cap = grower_->end;
+                grower_ = nullptr;
+                alloc_limit_ = committed_;
+            }
+        }
+        // Commit memory so that offsets up to `end` are usable. end <= limit_.
+        bool commit_through(std::size_t end) {
+            std::size_t new_committed;
+            if (limit_ - end < commit_step_) {
+                new_committed = limit_;
+            } else {
+                new_committed = (end + commit_step_ - 1) / commit_step_ * commit_step_;
+            }
+            if (!os::commit(base_ + committed_, new_committed - committed_)) {
+                return false;
+            }
+            committed_ = new_committed;
+            if (!grower_) {
+                alloc_limit_ = committed_;
+            }
+            return true;
+        }
         TOPSTACK_SLOW_PATH AllocResult try_alloc_slow(std::size_t bytes, std::size_t align) {
+            reclaim_top();
             std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(base_) + top_;
             std::uintptr_t aligned = (addr + align - 1) / align * align;
             std::size_t padding = aligned - addr;
@@ -213,21 +248,18 @@ class Stack {
                 return {nullptr, AllocError::OutOfReserve};
             }
             std::size_t end = start + bytes;
-            if (end > committed_) {
-                std::size_t new_committed;
-                if (limit_ - end < commit_step_) {
-                    new_committed = limit_;
-                } else {
-                    new_committed = (end + commit_step_ - 1) / commit_step_ * commit_step_;
-                }
-                if (!os::commit(base_ + committed_, new_committed - committed_)) {
-                    return {nullptr, AllocError::CommitFailed};
-                }
-                committed_ = new_committed;
+            if (end > committed_ && !commit_through(end)) {
+                return {nullptr, AllocError::CommitFailed};
             }
             top_ = end;
             return {base_ + start, AllocError::Ok};
         }
+        struct GrowState {
+            char* end;
+            char* cap;
+        };
+        GrowState* grower_ = nullptr;
+        std::size_t alloc_limit_ = 0;
 };
 
 class Scope {
@@ -289,10 +321,11 @@ inline AllocResult Stack::try_alloc(std::size_t bytes, std::size_t align) {
     if (align <= 4096 && bytes <= (std::size_t(1) << 32)) {
         std::size_t start = (top_ + align - 1) & ~(align - 1);
         std::size_t end = start + bytes;
-        if (end <= committed_ && end >= start) [[likely]] {
+        if (end <= alloc_limit_) [[likely]] {
             top_ = end;
             return {base_ + start, AllocError::Ok};
         }
+
     }
 
     return try_alloc_slow(bytes, align);
@@ -304,6 +337,13 @@ inline void* Stack::alloc(std::size_t bytes, std::size_t align) {
 
 void Stack::rewind(Mark m) {
     assert(m.owner == this);
+    if (grower_ && static_cast<std::size_t>(grower_->end - base_) > m.top_) {
+        rule_violation("a rewind would free part of a GrowBuf that is still growing: the buffer "
+                               "grew after this mark was taken (for example, it was created outside a "
+                               "Scope and pushed to inside it). Create the buffer inside the Scope, or "
+                               "give the Scope's allocations a different stack.");
+    }
+    reclaim_top();
     assert(m.top_ <= top_);
     assert(m.notes <= notes_.size());
     while (notes_.size() > m.notes) {
