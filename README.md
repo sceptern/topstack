@@ -232,8 +232,8 @@ Expr* l = b->l.get();                 // also b->l->..., *b->l, b->l == p
   fields has no padding, and such nodes sit back to back on the stack.
 - **Checks:** storing a target that is too far away (or at the link's own address) is
   checked in debug builds, like `assert`. Define `TOPSTACK_CHECKED_REFS` to keep the
-  checks in release builds too. On the benchmarks they cost 0 to 3%, except bintrees
-  with Clang (about 25%), where storing links is almost all the work.
+  checks in release builds too. On the benchmarks they cost 0 to 5%, except bintrees
+  (8% with GCC, 23% with Clang), where storing links is almost all the work.
 
 ### `Ref16<T>` and `OptRef16<T>`: 2-byte links for big structures
 
@@ -258,12 +258,12 @@ than a `Ref`. When the data fits in the CPU's cache, that shows, and `Ref` is fa
 When it doesn't, the smaller nodes mean fewer cache misses, and `Ref16` is faster too.
 Measured on this machine:
 
-| Benchmark | Data | `Ref` | `Ref16` | Use |
+| Benchmark | Data | 4-byte links | 2-byte links | Use |
 |---|---|---|---|---|
-| bintrees | trees of at most a few MB, rebuilt millions of times | **416 ms**, 17.8 MB | 509 ms, **9.5 MB** | `Ref` (or `Ref16` for memory) |
-| tree | one tree of 33 million nodes | 1231 ms, 386 MB | **914 ms, 259 MB** | `Ref16` |
-| interp | one expression tree, about 22 MB | 116 ms, 22.0 MB | **98 ms, 15.8 MB** | `Ref16` |
-| sexp | a parsed text, about 380 MB, much of it the text | **1747 ms**, 379 MB | 1838 ms, **323 MB** | either |
+| bintrees | trees of at most a few MB, rebuilt millions of times | **390 ms**, 17.9 MB | 492 ms, **9.5 MB** | 4-byte (or 2-byte for memory) |
+| tree | one tree of 33 million nodes | 1147 ms, 386 MB | **857 ms, 259 MB** | 2-byte |
+| interp | one expression tree, about 22 MB | 98 ms, 21.6 MB | **94 ms, 15.8 MB** | 2-byte |
+| sexp | a parsed text, about 380 MB, much of it the text | **1697 ms**, 379 MB | 1712 ms, **323 MB** | either |
 
 ## Building and testing
 
@@ -294,75 +294,129 @@ POSIX-only. GitHub Actions runs `./test.sh` on every push.
 
 All numbers below are from one machine: WSL2 (Linux 6.6) on a 16-core x86-64 PC, GCC
 13.3 and Clang 18.1, `-O2 -DNDEBUG`, all from one run
-(`bench/results/2026-11-26_2347.txt`). Each program ran 7 times; the first 2 runs are
+(`bench/results/2026-11-27_1113.txt`). Each program ran 7 times; the first 2 runs are
 warm-ups and the tables show the fastest of the rest. Memory is peak resident memory.
-Every program printed the same output as Goose's own version. Where both compilers were
-measured, the better one is shown.
+Every program printed the same output as Goose's own version.
 
-The benchmarks are [Goose's own](https://github.com/aardappel/goose/tree/master/bench)
-(`bench/` in the Goose repository), compared against Goose itself and against its C++
-and Rust versions, plus more baselines below.
+The benchmarks are all 16 of [Goose's own](https://github.com/aardappel/goose/tree/master/bench)
+(`bench/` in the Goose repository), at the largest sizes Goose's runner uses, compared
+against Goose and against the C++ and Rust versions that come with them. Goose's runner
+labels its C++ versions *idiomatic* or *expert*; the comparison here is against the
+expert ones, the hardest to beat.
 
-| Benchmark | Goose | topstack, `Ref` | topstack, `Ref16` | Best other C++ | Best other Rust |
-|---|---|---|---|---|---|
-| **bintrees**, depth 19 | **282 ms**, 25.5 MB | 416 ms, 17.8 MB | 509 ms, **9.5 MB** | 431 ms, 49.8 MB (`std::pmr`) | 477 ms, 25.9 MB (Vec arena) |
-| **tree**, depth 24 | 1241 ms, 386 MB | 1231 ms, 386 MB | **914 ms, 259 MB** | 1254 ms, 386 MB (vector arena) | 1467 ms, 386 MB (Vec arena) |
-| **interp**, depth 24 | 107 ms, 21.8 MB | 116 ms, 22.0 MB | **98 ms, 15.8 MB** | 187 ms, 49.4 MB (variant arena) | 201 ms, 37.2 MB (Vec arena) |
-| **sexp**, N = 300,000 | 1939 ms, 370 MB | **1747 ms**, 379 MB | 1838 ms, **323 MB** | 3056 ms, 955 MB (arena + string_view) | 2144 ms, 663 MB (Vec arena) |
-| **push**, 64M items | **581 ms**, 498 MB | 584 ms, 497 MB | | 596 ms, 498 MB (vector + exact reserve) | 599 ms, 498 MB (Vec + reserve) |
+### Summary
+
+How many times faster topstack is / how many times less memory it uses (above 1.00x:
+topstack wins). Each column uses the fastest version of each: topstack with the better
+link width and compiler, Goose's version of the same data structure, the fastest expert
+C++ version, and the fastest Rust version.
+
+| Benchmark | vs Goose | vs expert C++ | vs Rust |
+|---|---|---|---|
+| bintrees | 0.67x / 1.42x | 1.06x / 1.88x | 1.16x / 1.45x |
+| push | 1.04x / 1.00x | 1.01x / 1.00x | 1.03x / 1.00x |
+| tree | **1.26x / 1.49x** | **1.35x / 1.49x** | **1.47x / 1.49x** |
+| interp | 1.08x / 1.38x | **1.87x / 3.13x** | **2.02x / 2.35x** |
+| sexp | 1.12x / 0.98x | **1.74x / 2.52x** | 1.26x / 1.75x |
+| sum | 0.99x / 1.00x | 1.02x / 1.00x | 0.98x / 1.00x |
+| strlist | 0.96x / 1.12x | 1.23x / 1.00x | 1.12x / 1.14x |
+| records | 0.97x / 1.00x | **2.08x / 2.70x** | **2.60x / 4.28x** |
+| graph | 1.01x / 1.00x | 0.30x / 1.40x | 0.31x / 1.40x |
+| words | 0.66x / 1.17x | 1.05x / 1.47x | 1.08x / 1.48x |
+| particles | 1.06x / 1.00x | 0.79x / 1.00x | 0.97x / 1.00x |
+| lru | 0.98x / 1.00x | 1.01x / 1.02x | 1.01x / 1.00x |
+| scene | **1.31x** / 0.98x | **1.32x / 1.31x** | 1.00x / 1.00x |
+| calc | 0.99x / 1.00x | 1.02x / 1.00x | 0.91x / 1.00x |
+| respond | 0.90x / 1.00x | 0.91x / 1.00x | 1.06x / 1.00x |
+| blur | 3.44x / 1.00x | 0.81x / 1.00x | 0.68x / 1.00x |
+| **geometric mean** | **1.06x / 1.08x** | **1.07x / 1.38x** | **1.07x / 1.32x** |
+| without graph and blur | 0.98x / 1.10x | 1.20x / 1.41x | 1.20x / 1.35x |
 
 What it shows:
 
-- **Against Goose:** with the right link type, topstack is **faster and uses less
-  memory** on `tree` (26% faster, 33% less memory), `interp` (8% faster, 27% less) and
-  `sexp` (10% faster with `Ref`, or 13% less memory with `Ref16`). `push` is a tie.
-  On `bintrees` Goose is 1.5x faster; topstack uses 30% less memory with `Ref`, 63% less
-  with `Ref16`. Why Goose wins there is explained below.
-- **Against the C++ and Rust versions:** topstack is faster on every tree benchmark and
-  uses less memory, often far less. On `push` it ties with a `std::vector` that has an
-  exact `reserve`, which only works when the final size is known in advance and can't
-  keep pointers to elements; the C++ container that can (`std::deque`) was 15 to 50%
-  slower in earlier runs. `pinned_vector`, a vector that grows inside reserved address
-  space like `GrowBuf`, took 575 ms: the same within noise.
+- **Memory: about the same as Goose, and much less than C++ and Rust** wherever the
+  data has structure: up to 2.7x less than expert C++ (records) and 4.3x less than Rust.
+  topstack never uses more than 2% more memory than Goose, and uses less on bintrees,
+  tree, interp, strlist and words. On the benchmarks that are a flat array of numbers
+  (push, sum, particles, blur), every version uses the same memory.
+- **Speed: even with Goose overall** (0.98x leaving out graph and blur, explained
+  below). topstack is faster on tree, scene, sexp and interp; Goose is faster on
+  bintrees (the calling convention, see below), words (34%) and respond (10%).
+- **Against expert C++ and Rust: about 1.2x faster on average**, and up to 2.1x
+  (records), 1.9x (interp) and 1.7x (sexp), while using less memory.
+- **graph** isn't like for like in the C++ and Rust columns. topstack and Goose's main
+  version build linked edge lists; the fastest C++ and Rust versions use a different
+  layout (CSR, built in two passes), which is about 3x faster in every language,
+  Goose's own CSR version included. Against the same linked layout, topstack ties.
+- **blur and particles** are arithmetic on flat arrays, where the compiler decides:
+  Clang vectorizes blur and GCC (at `-O2`) and Goose don't; structure-of-arrays C++ is
+  faster on particles. topstack's memory model doesn't change these.
+- **GCC is slower than Clang on topstack code that writes bytes one at a time** (words
+  24%, records 15%). The tables show the faster compiler.
+
+### Times and memory
+
+| Benchmark | Goose | topstack | Fastest expert C++ | Fastest Rust |
+|---|---|---|---|---|
+| **bintrees**, depth 19 | **263 ms**, 25.5 MB | 390 ms, 17.9 MB (`OptRef`); 492 ms, **9.5 MB** (`OptRef16`) | 412 ms, 33.6 MB (vector arena) | 451 ms, 25.9 MB (Vec arena) |
+| **push**, 64M items | 572 ms, 498 MB | **551 ms**, 498 MB | 559 ms, 498 MB (vector + exact reserve) | 570 ms, 498 MB (Vec + reserve) |
+| **tree**, depth 24 | 1079 ms, 386 MB | **857 ms, 259 MB** (`OptRef16`) | 1153 ms, 386 MB (vector arena) | 1256 ms, 386 MB (Vec arena) |
+| **interp**, depth 24 | 101 ms, 21.8 MB | **94 ms, 15.8 MB** (`Ref16`) | 176 ms, 49.4 MB (tagged union + arena) | 190 ms, 37.2 MB (Vec arena) |
+| **sexp**, N = 300,000 | 1896 ms, **370 MB** | **1697 ms**, 379 MB (`OptRef`); 1712 ms, 323 MB (`OptRef16`) | 2951 ms, 955 MB (arena + string_view) | 2140 ms, 663 MB (Vec arena) |
+| **sum**, 128M items | 985 ms, 490 MB | 997 ms, 490 MB | 1019 ms, 490 MB (vector + reserve) | **981 ms**, 490 MB |
+| **strlist**, 8M words | **586 ms**, 215 MB | 609 ms, **192 MB** | 751 ms, 193 MB (flat offsets) | 679 ms, 219 MB (`Vec<&str>`) |
+| **records**, 16M events | **648 ms, 143 MB** | 668 ms, 143 MB | 1393 ms, 386 MB (variant + fixed buffer) | 1736 ms, 612 MB (enum + String) |
+| **graph**, 2M vertices | 6894 ms, 154 MB (linked); 2152 ms, 215 MB (CSR) | 6834 ms, 154 MB (linked, `OptRef`) | **2037 ms**, 215 MB (CSR) | 2131 ms, 215 MB (CSR) |
+| **words**, 16M words | **2231 ms**, 529 MB | 3367 ms, **452 MB** | 3541 ms, 664 MB (open addressing) | 3652 ms, 668 MB (open addressing) |
+| **particles**, 4M | 1995 ms, 93.5 MB | 1878 ms, 93.4 MB | **1476 ms**, 93.4 MB (structure of arrays) | 1830 ms, 93.2 MB |
+| **lru**, 32M operations | **3253 ms**, 127 MB | 3315 ms, 127 MB (`Ref`) | 3350 ms, 130 MB (arena + open addressing) | 3352 ms, 127 MB (open addressing) |
+| **scene**, depth 16 | 980 ms, **180 MB** | 748 ms, 184 MB (`Ref`) | 986 ms, 242 MB (arena + indices) | **745 ms**, 184 MB (arena) |
+| **calc**, 1.6M inputs | 683 ms | 691 ms (`Ref16`) | 704 ms (arena + error codes) | **627 ms** (arena + Result) |
+| **respond**, 1.6M requests | 694 ms (DTO); **555 ms** (streaming) | 774 ms (DTO) | 702 ms (streaming) | 823 ms (streaming) |
+| **blur**, 8192×8192 | 2486 ms | 722 ms | 584 ms (row pointers) | **494 ms** |
+
+calc and respond use 8.3 MB in every version, blur 130 MB.
 
 ### Other allocators, on bintrees (depth 19)
 
-Same run and same section as the table above (Goose: 282 ms):
+Same run and same section as the tables above (Goose: 263 ms):
 
 | | Time | Memory |
 |---|---|---|
-| **topstack, `Ref`** | **416 ms** | 17.8 MB |
-| **topstack, `Ref16`** | 509 ms | **9.5 MB** |
-| `std::pmr::monotonic_buffer_resource`, one reused buffer | 431 ms | 49.8 MB |
-| C++ vector arena with 32-bit indices (Goose's "expert" C++) | 438 ms | 33.6 MB |
-| topstack, 8-byte pointers | 465 ms | 33.8 MB |
-| Rust `Vec` arena | 477 ms | 25.9 MB |
-| `std::pmr::monotonic_buffer_resource`, one per tree | 481 ms | 33.5 MB |
-| LLVM `BumpPtrAllocator` | 932 to 1077 ms | 33.8 MB |
-| C++ new/delete | 2349 ms | 65.6 MB |
-| Rust `Box` | 2817 ms | 66.0 MB |
+| **topstack, `OptRef`** | **390 ms** | 17.9 MB |
+| **topstack, `OptRef16`** | 492 ms | **9.5 MB** |
+| C++ vector arena with 32-bit indices (Goose's "expert" C++) | 412 ms | 33.6 MB |
+| `std::pmr::monotonic_buffer_resource`, one reused buffer | 412 ms | 49.8 MB |
+| topstack, 8-byte pointers | 427 ms | 33.9 MB |
+| Rust `Vec` arena | 451 ms | 25.9 MB |
+| `std::pmr::monotonic_buffer_resource`, one per tree | 453 ms | 33.5 MB |
+| LLVM `BumpPtrAllocator` | 878 to 1025 ms | 33.8 MB |
+| C++ new/delete | 2203 ms | 65.6 MB |
+| Rust `Box` | 2621 ms | 65.9 MB |
 
-Per-node allocation with faster `malloc`s, from the run's malloc section (the machine
-was slower then: Goose 316 ms, topstack with 32-bit links 442 ms):
+Per-node allocation with faster `malloc`s, from the run's malloc section (Goose:
+265 ms):
 
 | | Time | Memory |
 |---|---|---|
-| C++ new/delete with mimalloc / tcmalloc / jemalloc / glibc | 1674 / 2020 / 2677 / 2753 ms | 34 / 41 / 42 / 66 MB |
-| Rust `Box` with mimalloc | 2042 ms | 34.2 MB |
-| LLVM `BumpPtrAllocator` with tcmalloc / mimalloc | 519 / 570 ms | 40.5 / 42.1 MB |
+| C++ new/delete with mimalloc / tcmalloc / jemalloc / glibc | 1306 / 1631 / 2082 / 2190 ms | 34 / 41 / 42 / 66 MB |
+| Rust `Box` with mimalloc | 1568 ms | 34.2 MB |
+| LLVM `BumpPtrAllocator` with tcmalloc / mimalloc | 443 / 463 ms | 40.5 / 42.1 MB |
 
 - With 8-byte pointer nodes, topstack is about even with the other arenas; its lead
   comes from 4- and 2-byte links, which only work because its memory never moves.
 - LLVM's allocator gets and frees its chunks through `malloc`; with glibc's `malloc` on
   this machine that halves its speed, with tcmalloc it is on par with the others.
-- A better `malloc` makes per-node allocation up to 1.6x faster, but it stays almost 4x
-  slower than an arena: freeing a tree node by node is the cost, not finding memory.
-- Rust's `bumpalo`, from the run's bumpalo section: bintrees 505 ms / 33.8 MB, tree
-  2349 ms / 770 MB, interp 302 ms / 73 MB, sexp 2385 ms / 838 MB. Its 8-byte references
+- A better `malloc` makes per-node allocation up to 1.7x faster, but it stays more than
+  3x slower than an arena: freeing a tree node by node is the cost, not finding memory.
+- Rust's `bumpalo`, from the run's bumpalo section: bintrees 468 ms / 33.8 MB, tree
+  2299 ms / 770 MB, interp 276 ms / 73 MB, sexp 2187 ms / 838 MB. Its 8-byte references
   and doubling chunks cost both time and memory.
-- Google's protobuf `Arena` has so far only been measured on the development machine,
-  where it was the slowest arena tried: about 30% slower than topstack's pointer version
-  at the same memory. (`bench/compare_protobuf.sh` runs it.)
+- Google's protobuf `Arena`, measured in a separate run on the same machine
+  (`bench/results/2026-11-27_protobuf.txt`; Goose 275 ms, topstack `OptRef` 405 ms):
+  670 ms and 50 MB with one arena reused for every tree, and 1990 to 2260 ms (34 MB) with
+  a new arena or a `Reset()` per tree, about as slow as plain new/delete. It is the
+  slowest arena tried. (`bench/compare_protobuf.sh` runs it; it needs `libprotobuf-dev`.)
 
 ### Where the rest of Goose's speed comes from
 
@@ -370,7 +424,7 @@ On `bintrees`, the remaining gap is not the allocator. Goose passes the stack's 
 into each function and returns it, so it stays in a CPU register for the whole
 recursion; a library can only keep it in memory, which costs a store and a load around
 every call. Written that way by hand (`bench/bintrees_thread.cpp`), the same benchmark
-runs in **209 ms with GCC, 26% faster than Goose** (282 ms in the same run). With Clang
+runs in **199 ms with GCC, 24% faster than Goose** (263 ms in the same run). With Clang
 it doesn't help, because Clang doesn't inline recursive calls. Getting this
 automatically needs compiler support; see the roadmap.
 
@@ -382,11 +436,12 @@ From `bench/`, with Goose built at `~/programming/goose/build/goose` (or set `GO
 ./report.sh
 ```
 
-runs everything (about 25 minutes) and saves the output in `bench/results/`. The
+runs everything (about an hour) and saves the output in `bench/results/`. The
 individual scripts are `compare.sh` (bintrees, push, std::pmr, Goose's C++ and Rust),
 `compare_extra.sh` (LLVM's allocator and `pinned_vector`), `compare_malloc.sh`
 (mimalloc, jemalloc, tcmalloc), `compare_more.sh` (tree, interp, sexp),
-`compare_bumpalo.sh` (Rust's bumpalo) and `compare_protobuf.sh` (protobuf's Arena).
+`compare_bumpalo.sh` (Rust's bumpalo), `compare_suite.sh` (the other 11 benchmarks;
+`./compare_suite.sh records` runs one) and `compare_protobuf.sh` (protobuf's Arena).
 Requirements beyond GCC and Clang:
 
 ```sh
@@ -398,7 +453,7 @@ curl --proto '=https' -sSf https://sh.rustup.rs | sh        # for the Rust rows
 C++ programs are linked with `-static-libstdc++` so that loading the C++ standard
 library (about 2.4 MB) doesn't count against them; Goose and Rust programs don't pay
 it either. Each section of a run measures Goose again, and the machine's speed drifts
-by up to 10% over a 25-minute run, so compare rows within one section.
+by up to 10% over a run, so compare rows within one section.
 
 ## How it works
 
@@ -435,10 +490,15 @@ by up to 10% over a 25-minute run, so compare rows within one section.
   but tools that cap a process's address space (Valgrind, `ulimit -v`, some containers)
   may refuse to create stacks. On Windows, each stack's small relay area (8 MB) counts
   toward the system commit limit, though it uses no RAM until written.
-- **Rule violations are found at runtime,** not compile time as in Goose. `Ref` misuse
+- **Rule violations are found at runtime,** not compile time as in Goose. Link misuse
   in release builds is only caught with `TOPSTACK_CHECKED_REFS`; `Ref16` far links are
-  always checked.
-- **No shrinking or freeing out of order.** There is no `pop` for `GrowBuf` yet, and
+  always checked. AddressSanitizer doesn't yet know when a `Scope` frees memory, so it
+  can't catch use after a rewind the way it catches use after `free`.
+- **Variable-size records are packed by hand.** Goose's variable-size enums store each
+  record at its own size; in topstack that takes `GrowBuf::extend` and `memcpy` at
+  hand-written offsets (see `bench/records_topstack.cpp`).
+- **No shrinking or freeing out of order.** There is no `pop` for `GrowBuf` yet (only
+  `clear`), and
   no pools for objects that don't die in stack order (Goose's `slot_pool` and
   `slice_pool`).
 - **Memory isn't returned to the OS** while a stack is alive, only when it is
@@ -454,8 +514,12 @@ by up to 10% over a 25-minute run, so compare rows within one section.
   starting with links in local variables and temporaries, then "only the top grows",
   then narrow links where they can be proven to stay near. After that, an LLVM pass that
   passes the stack's top through calls in registers, as Goose does.
-- **Library:** `GrowBuf::pop` and `resize`, slot and slice pools, `trim()`, and a
-  `std::pmr` adapter so strings and vectors inside nodes can live on a stack too.
+- **Safety:** tell AddressSanitizer about rewinds, so use after a `Scope` is caught
+  like use after `free`.
+- **Library:** a typed writer and reader for packed variable-size records (the closest
+  C++ gets to Goose's variable-size enums), `GrowBuf::pop` and `resize`, slot and slice
+  pools, `trim()`, and a `std::pmr` adapter so strings and vectors inside nodes can live
+  on a stack too.
 - **Real programs:** porting a JSON parser (cJSON) and a small C compiler (chibicc) to
   topstack, to measure more than benchmarks.
 - **Windows** builds and tests.

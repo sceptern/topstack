@@ -20,6 +20,10 @@ out=results/$(date +%Y-%m-%d_%H%M).txt
     ./compare_more.sh || echo "(compare_more.sh failed)"
     echo
     ./compare_bumpalo.sh || echo "(compare_bumpalo.sh failed)"
+    echo
+    ./compare_suite.sh || echo "(compare_suite.sh failed)"
+    echo
+    ./compare_protobuf.sh || echo "(compare_protobuf.sh failed)"
 } 2>&1 | tee "$out"
 echo
 echo "saved to bench/$out"
