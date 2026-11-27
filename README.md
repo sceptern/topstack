@@ -257,8 +257,9 @@ topstack is header-only: add `include/` to your include path. It needs C++20.
 ./test.sh
 ```
 
-builds every test twice, once normally and once with AddressSanitizer and
-UndefinedBehaviorSanitizer, and runs them, stopping at the first failure:
+builds each test twice, once normally and once with AddressSanitizer and
+UndefinedBehaviorSanitizer, then builds two small programs that check plain-stack-only
+use and a GrowBuf in a global variable, and runs them all, stopping at the first failure:
 
 ```
 tests/stack_test.cpp       Stack, alloc, marks, Scope, make, cleanups
