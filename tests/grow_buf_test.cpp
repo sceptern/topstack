@@ -84,6 +84,7 @@ int main() {
         CHECK(*p == 1.5);
     }
 
+    // Destroying the buffer destroys its elements, newest first.
     {
         auto [s, err] = Stack::create();
         Tracker::alive = 0;
@@ -106,6 +107,7 @@ int main() {
         CHECK(names.size() == 100 && names[99].size() == 50);
     }
 
+    // A buffer still on top gives its space back when destroyed.
     {
         auto [s, err] = Stack::create();
         (void)s->alloc(100, 1);
@@ -118,6 +120,8 @@ int main() {
         CHECK(s->used() == before);
     }
 
+    // A buffer no longer on top destroys its elements but leaves the space to the
+    // enclosing scope (it can't free memory that something else sits above).
     {
         auto [s, err] = Stack::create();
         Tracker::alive = 0;
@@ -135,6 +139,7 @@ int main() {
         CHECK(s->used() == before);
     }
 
+    // A constructor that throws doesn't break the buffer: the next push works.
     {
         auto [s, err] = Stack::create();
         GrowBuf<Picky> buf(*s);
@@ -147,6 +152,7 @@ int main() {
         CHECK(p == &buf[1] && buf[1].v == 2);
     }
 
+    // Out of space: push returns nullptr.
     {
         auto [s, err] = Stack::create(4096);
         GrowBuf<std::uint64_t> buf(*s);
@@ -156,6 +162,7 @@ int main() {
         CHECK(buf.size() == pushed);
     }
 
+    // The rule: pushing after something else was allocated on the same stack aborts.
     CHECK(aborts([] {
         auto [s, err] = Stack::create();
         GrowBuf<int> buf(*s);
@@ -172,6 +179,7 @@ int main() {
         (void)a.push(3);
     }));
 
+    // Two buffers growing together work fine on two stacks.
     {
         auto [s1, e1] = Stack::create();
         auto [s2, e2] = Stack::create();
@@ -179,6 +187,200 @@ int main() {
         for (int i = 0; i < 100'000; ++i) { (void)tokens.push(i); (void)nodes.push(-i); }
         CHECK(tokens[777] == 777 && nodes[777] == -777);
     }
+
+    // ---------- step 2: the buffer owns the top while it grows ----------
+
+    // The stack sees the growing buffer: used() and mark() include its elements.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> buf(*s);
+        for (int i = 0; i < 1000; ++i) (void)buf.push(i);
+        CHECK(s->used() == 1000 * sizeof(int));
+        Stack::Mark m = s->mark();
+        CHECK(m.top_ == 1000 * sizeof(int));
+    }
+
+    // Temporaries above a buffer, once rewound, let it grow again in place.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> buf(*s);
+        for (int i = 0; i < 10; ++i) (void)buf.push(i);
+        {
+            topstack::Scope temps(*s);
+            int* tmp = s->make_array<int>(500);
+            tmp[0] = 1;
+        }
+        for (int i = 10; i < 100'000; ++i) (void)buf.push(i);
+        bool ok = true;
+        for (int i = 0; i < 100'000; ++i) ok &= (buf[i] == i);
+        CHECK(ok);
+        CHECK(&buf[10] == &buf[9] + 1);
+    }
+
+    // A new buffer seals the older one; once the new one is gone, the old one resumes.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> outer(*s);
+        (void)outer.push(1);
+        {
+            GrowBuf<int> inner(*s);
+            for (int i = 0; i < 100; ++i) (void)inner.push(i);
+        }
+        (void)outer.push(2);
+        CHECK(outer.size() == 2 && outer[1] == 2);
+        CHECK(s->used() == 2 * sizeof(int));
+    }
+
+    // Allocating after a buffer is fine as long as the buffer doesn't grow again.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> tokens(*s);
+        for (int i = 0; i < 100; ++i) (void)tokens.push(i);
+        int* first = &tokens[0];
+        int** refs = s->make_array<int*>(100);
+        for (int i = 0; i < 100; ++i) refs[i] = &tokens[i];
+        CHECK(refs[99] == first + 99 && *refs[99] == 99);
+    }
+
+    CHECK(aborts([] {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> buf(*s);
+        (void)buf.push(1);
+        {
+            topstack::Scope scope(*s);
+            (void)buf.push(2);
+        }
+    }));
+
+    CHECK(aborts([] {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> buf(*s);
+        (void)buf.push(1);
+        {
+            topstack::Scope scope(*s);
+            (void)buf.push(2);
+            (void)s->make<int>(3);
+        }
+        (void)buf.push(4);
+    }));
+    // ...or when the buffer is destroyed, before any destructor runs on freed memory.
+    CHECK(aborts([] {
+        auto [s, err] = Stack::create();
+        GrowBuf<std::string> buf(*s);
+        (void)buf.push("a");
+        {
+            topstack::Scope scope(*s);
+            (void)buf.push("b");
+            (void)s->make<int>(3);
+        }
+    }));
+
+    // ---- step 4: moving ----
+
+    // Return a growing buffer from a function, then keep pushing to it.
+    {
+        auto [s, err] = Stack::create();
+        auto read_numbers = [](Stack& st) {
+            GrowBuf<int> out(st);
+            for (int i = 0; i < 1000; ++i) (void)out.push(i);
+            return out;
+        };
+        GrowBuf<int> nums = read_numbers(*s);
+        int* first = &nums[0];
+        for (int i = 1000; i < 100'000; ++i) (void)nums.push(i);
+        CHECK(nums.size() == 100'000 && nums[99'999] == 99'999);
+        CHECK(&nums[0] == first);
+        CHECK(s->used() == 100'000 * sizeof(int));
+    }
+
+    // After a move, the stack follows the new buffer: an alloc seals the new one,
+    // and the moved-from one has nothing.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> a(*s);
+        (void)a.push(1);
+        (void)a.push(2);
+        GrowBuf<int> b(std::move(a));
+        CHECK(a.size() == 0 && a.empty());
+        CHECK(b.size() == 2 && b[1] == 2);
+        (void)b.push(3);
+        CHECK(s->used() == 3 * sizeof(int));
+        int* x = s->make<int>(9);
+        CHECK(x == b.end());
+    }
+
+    // The moved-from destructor does nothing; the new owner destroys each element once
+    // and gives the space back.
+    {
+        Tracker::alive = 0; Tracker::logged = 0;
+        auto [s, err] = Stack::create();
+        std::size_t before = s->used();
+        {
+            GrowBuf<Tracker> a(*s);
+            (void)a.push(1);
+            (void)a.push(2);
+            {
+                GrowBuf<Tracker> b(std::move(a));
+                CHECK(Tracker::alive == 2);
+            }
+            CHECK(Tracker::alive == 0);
+            CHECK(Tracker::logged == 2 && Tracker::log[0] == 2 && Tracker::log[1] == 1);
+            CHECK(s->used() == before);
+        }
+        CHECK(Tracker::logged == 2);
+    }
+
+    // Move assignment: the old elements are destroyed first, then ownership moves.
+    {
+        Tracker::alive = 0; Tracker::logged = 0;
+        auto [s, err] = Stack::create();
+        GrowBuf<Tracker> a(*s);
+        (void)a.push(1);
+        GrowBuf<Tracker> b(*s);
+        (void)b.push(2);
+        (void)b.push(3);
+        a = std::move(b);
+        CHECK(Tracker::alive == 2);
+        CHECK(Tracker::logged == 1 && Tracker::log[0] == 1);
+        CHECK(a.size() == 2 && a[0].id == 2 && b.size() == 0);
+        (void)a.push(4);
+        CHECK(a.size() == 3 && a[2].id == 4);
+    }
+
+    // Moving a sealed buffer works too, and it can resume once it is back on top.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> a(*s);
+        (void)a.push(1);
+        {
+            topstack::Scope scope(*s);
+            (void)s->make<int>(5);
+        }
+        GrowBuf<int> b(std::move(a));
+        (void)b.push(2);
+        CHECK(b.size() == 2 && b[1] == 2);
+    }
+
+    // Self-move-assignment leaves the buffer alone.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> a(*s);
+        (void)a.push(7);
+        GrowBuf<int>& alias = a;
+        a = std::move(alias);
+        CHECK(a.size() == 1 && a[0] == 7);
+    }
+
+#ifndef NDEBUG
+    // Pushing to a moved-from buffer is a bug: caught in debug builds.
+    CHECK(aborts([] {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> a(*s);
+        (void)a.push(1);
+        GrowBuf<int> b(std::move(a));
+        (void)a.push(2);
+    }));
+#endif
 
     std::printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
     return failures ? 1 : 0;

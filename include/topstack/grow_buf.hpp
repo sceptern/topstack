@@ -20,32 +20,27 @@ public:
         }
     }
 
-    void acquire() {
-        stack_->grower_ = &state_;
-        stack_->alloc_limit_ = 0;
-        state_.cap = stack_->base_ + stack_->committed_;
-    }
-
-    ~GrowBuf() {
-        Stack& s = *stack_;
-        s.reclaim_top();
-        std::size_t end_offset = static_cast<std::size_t>(state_.end - s.base_);
-        if (s.top_ < end_offset) {
-            rule_violation("part of a GrowBuf was freed by a rewind while the buffer was still "
-                           "alive (it grew after a mark that was later rewound)");
-        }
-        if constexpr (!std::is_trivially_destructible_v<T>) {
-            for (T* p = end(); p != data_;) {
-                (--p)->~T();
-            }
-        }
-        if (s.top_ == end_offset) {
-            s.rewind(mark_);
-        }
-    }
+    ~GrowBuf() { release(); }
 
     GrowBuf(const GrowBuf&) = delete;
     GrowBuf& operator=(const GrowBuf&) = delete;
+
+    GrowBuf(GrowBuf&& other) noexcept
+        : stack_(other.stack_), mark_(other.mark_), data_(other.data_), state_(other.state_) {
+        take_over_from(other);
+    }
+
+    GrowBuf& operator=(GrowBuf&& other) noexcept {
+        if (this != &other) {
+            release();
+            stack_ = other.stack_;
+            mark_ = other.mark_;
+            data_ = other.data_;
+            state_ = other.state_;
+            take_over_from(other);
+        }
+        return *this;
+    }
 
     template <class... Args>
     T* push(Args&&... args) {
@@ -76,7 +71,14 @@ private:
     T* data_;
     Stack::GrowState state_;
 
+    void acquire() {
+        stack_->grower_ = &state_;
+        stack_->alloc_limit_ = 0;
+        state_.cap = stack_->base_ + stack_->committed_;
+    }
+
     TOPSTACK_SLOW_PATH bool make_room(char* next) {
+        assert(stack_ && "push to a moved-from GrowBuf");
         Stack& s = *stack_;
         if (s.grower_ != &state_) {
             s.reclaim_top();
@@ -99,6 +101,35 @@ private:
         }
         state_.cap = s.base_ + s.committed_;
         return true;
+    }
+    void release() {
+        if (!stack_) {
+            return;
+        }
+        Stack& s = *stack_;
+        s.reclaim_top();
+        std::size_t end_offset = static_cast<std::size_t>(state_.end - s.base_);
+        if (s.top_ < end_offset) {
+            rule_violation("part of a GrowBuf was freed by a rewind while the buffer was still "
+                           "alive (it grew after a mark that was later rewound)");
+        }
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            for (T* p = end(); p != data_;) {
+                (--p)->~T();
+            }
+        }
+        if (s.top_ == end_offset) {
+            s.rewind(mark_);
+        }
+        stack_ = nullptr;
+    }
+    void take_over_from(GrowBuf& other) noexcept {
+        if (stack_ && stack_->grower_ == &other.state_) {
+            stack_->grower_ = &state_;
+        }
+        char* empty = reinterpret_cast<char*>(other.data_);
+        other.stack_ = nullptr;
+        other.state_ = {empty, empty};
     }
 
 };

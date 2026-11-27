@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 #include <cassert>
@@ -146,6 +147,7 @@ class Stack {
         std::size_t committed_;
         std::size_t limit_;
         std::size_t commit_step_;
+        static constexpr std::size_t max_commit_jump = std::size_t(64) << 20;
         std::vector<Note> notes_;
     public:
         inline static CreateResult create(std::size_t reserve_bytes = std::size_t(2) << 30, std::size_t commit_step = std::size_t(64) << 10);
@@ -220,11 +222,13 @@ class Stack {
         }
         // Commit memory so that offsets up to `end` are usable. end <= limit_.
         bool commit_through(std::size_t end) {
+            std::size_t grow = std::min(std::max(committed_, commit_step_), max_commit_jump);
+            std::size_t want = std::max(end, committed_ + grow);
             std::size_t new_committed;
-            if (limit_ - end < commit_step_) {
+            if (want >= limit_ || limit_ - want < commit_step_) {
                 new_committed = limit_;
             } else {
-                new_committed = (end + commit_step_ - 1) / commit_step_ * commit_step_;
+                new_committed = (want + commit_step_ - 1) / commit_step_ * commit_step_;
             }
             if (!os::commit(base_ + committed_, new_committed - committed_)) {
                 return false;
