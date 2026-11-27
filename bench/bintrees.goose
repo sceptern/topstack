@@ -1,3 +1,4 @@
+// Modified for topstack: MAXDEPTH changed from 17 to 19.
 // The Benchmarks Game's binary-trees, included for recognisability: build
 // a great many short-lived complete binary trees, check each, throw it
 // away, with one long-lived tree kept across the run. It is famously an

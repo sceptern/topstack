@@ -28,3 +28,7 @@ bench/LICENSE-goose):
 
 The comparison scripts also copy further Goose sources into bench/bin/ at run
 time; those copies are not part of this repository.
+
+bench/llvm_shim.cpp was written for topstack, not copied from LLVM. It behaves like
+LLVM's allocate_buffer, deallocate_buffer and SmallVectorBase::grow_pod, so the LLVM
+benchmark can run without loading libLLVM.
