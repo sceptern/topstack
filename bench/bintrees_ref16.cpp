@@ -1,11 +1,11 @@
-// bintrees with Ref16<T>: 2-byte links, so a node is 4 bytes (8 with Ref<T>).
+// bintrees with OptRef16<T>: 2-byte links, so a node is 4 bytes (8 with OptRef<T>).
 // Uses half the memory of bintrees_ref.cpp, but these trees fit in the CPU's cache,
-// so the extra work per link shows and Ref<T> is faster here. Kept to show both.
+// so the extra work per link shows and OptRef<T> is faster here. Kept to show both.
 #include "bench.h"
 #include <topstack/ref16.hpp>
 #define MAXDEPTH BENCH_N
 static const int MINDEPTH = 4;
-struct Node { topstack::Ref16<Node> l, r; };
+struct Node { topstack::OptRef16<Node> l, r; };
 static_assert(sizeof(Node) == 4);
 static Node* make(topstack::Stack& s, int d) {
     if (d == 0) return s.make<Node>();

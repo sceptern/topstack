@@ -56,6 +56,39 @@ public:
         return obj;
     }
 
+    T* extend(std::size_t n) requires std::is_trivially_default_constructible_v<T> {
+        if (n > relay::max_data / sizeof(T)) {
+            return nullptr;
+        }
+        char* next = state_.end + n * sizeof(T);
+        if (next > state_.cap) [[unlikely]] {
+            if (!make_room(next)) {
+                return nullptr;
+            }
+        }
+        T* first = reinterpret_cast<T*>(state_.end);
+        state_.end = next;
+        return first;
+    }
+
+    void clear() {
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            for (T* p = end(); p != data_;) {
+                (--p)->~T();
+            }
+        }
+        char* start = reinterpret_cast<char*>(data_);
+        if (stack_ && stack_->grower_ != &state_) {
+            Stack& s = *stack_;
+            s.reclaim_top();
+            if (s.base_ + s.top_ == state_.end) {
+                s.rewind({static_cast<std::size_t>(start - s.base_), s.note_count(), &s});
+            }
+            state_.cap = start;
+        }
+        state_.end = start;
+    }
+
     T& operator[](std::size_t i)             { return data_[i]; }
     const T& operator[](std::size_t i) const { return data_[i]; }
     std::size_t size() const                 { return static_cast<std::size_t>(end() - data_); }

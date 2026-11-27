@@ -1,6 +1,6 @@
 // Goose's tree benchmark (bench/goose/tree.goose) with topstack. As in Goose, the
 // nodes live in one growing array and link to each other with self-relative
-// 32-bit offsets (Ref<T>), so a node is 12 bytes; children are pushed before
+// 32-bit offsets (OptRef<T>), so a node is 12 bytes; children are pushed before
 // their parent. The array is a global, like Goose's `pool`.
 #include "bench.h"
 #include <topstack/grow_buf.hpp>
@@ -10,7 +10,7 @@
 #define DEPTH BENCH_N
 #endif
 
-struct TNode { int32_t v; topstack::Ref<TNode> l, r; };
+struct TNode { int32_t v; topstack::OptRef<TNode> l, r; };
 static_assert(sizeof(TNode) == 12);
 
 static topstack::GrowBuf<TNode> pool;

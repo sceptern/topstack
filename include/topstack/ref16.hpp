@@ -7,21 +7,31 @@
 
 namespace topstack {
 
-template <class T>
-class Ref16 {
+template <class T, bool Nullable>
+class BasicRef16 {
     public:
-        Ref16() = default;
-        Ref16(std::nullptr_t) {}
-        Ref16(T* target) { set(target); }
-        Ref16(const Ref16& other) { set(other.get()); }
-        Ref16& operator=(const Ref16& other) { set(other.get()); return *this; }
-        Ref16& operator=(T* target) { set(target); return *this; }
-        Ref16& operator=(std::nullptr_t) { store(0); return *this; }
+        BasicRef16() = default;
+        BasicRef16(T* target) { set(target); }
+        BasicRef16(const BasicRef16& other) { set(other.get()); }
+        BasicRef16& operator=(const BasicRef16& other) { set(other.get()); return *this; }
+        BasicRef16& operator=(T* target) { set(target); return *this; }
+
+        BasicRef16(std::nullptr_t) requires Nullable {}
+        BasicRef16& operator=(std::nullptr_t) requires Nullable { store(0); return *this; }
+        BasicRef16(std::nullptr_t) requires (!Nullable) = delete;
+        BasicRef16& operator=(std::nullptr_t) requires (!Nullable) = delete;
+        explicit operator bool() const requires Nullable { return load() != 0; }
 
         T* get() const {
             std::int16_t v = load();
-            if (v == 0) {
-                return nullptr;
+            if constexpr (Nullable) {
+                if (v == 0) {
+                    return nullptr;
+                }
+            } else if constexpr (ref_checks) {
+                if (v == 0) [[unlikely]] {
+                    rule_violation("a Ref16 was read before it was set");
+                }
             }
             std::uintptr_t self = reinterpret_cast<std::uintptr_t>(this);
             if ((v & 1) == 0) [[likely]] {
@@ -31,22 +41,27 @@ class Ref16 {
         }
         T* operator->() const { return get(); }
         T& operator*() const { return *get(); }
-        explicit operator bool() const { return load() != 0; }
 
-        friend bool operator==(const Ref16& a, const Ref16& b) { return a.get() == b.get(); }
-        friend bool operator==(const Ref16& a, const T* b)     { return a.get() == b; }
+        friend bool operator==(const BasicRef16& a, const BasicRef16& b) { return a.get() == b.get(); }
+        friend bool operator==(const BasicRef16& a, const T* b)          { return a.get() == b; }
 
         void set(T* target) {
-            if (!target) {
-                store(0);
-                return;
+            if constexpr (Nullable) {
+                if (!target) {
+                    store(0);
+                    return;
+                }
+            } else if constexpr (ref_checks) {
+                if (!target) [[unlikely]] {
+                    rule_violation("a Ref16 was set to null; use OptRef16 for links that can be null");
+                }
             }
             std::intptr_t d = static_cast<std::intptr_t>(reinterpret_cast<std::uintptr_t>(target) - reinterpret_cast<std::uintptr_t>(this));
             if (static_cast<std::uintptr_t>(d + 16384) < 32768u) [[likely]] {
                 if constexpr (ref_checks) {
                     if (d == 0) {
-                        rule_violation("a Ref16 can't point at its own address: that offset means "
-                                            "null. Put another field first.");
+                        rule_violation("a Ref16 or OptRef16 can't point at its own address. Put "
+                                       "another field first.");
                     }
                 }
                 store(static_cast<std::int16_t>(d * 2));
@@ -65,7 +80,7 @@ class Ref16 {
             std::uintptr_t self = reinterpret_cast<std::uintptr_t>(this);
             std::uintptr_t block = os::block_of(this);
             if (os::block_of(target) != block || self - block >= relay::max_data) {
-                rule_violation("a Ref16 and its target must be on the same topstack stack (a link "
+                rule_violation("a Ref16 or OptRef16 and its target must be on the same topstack stack (a link "
                                "in a local variable or temporary is on the native stack). Keep "
                                "linked objects on one stack, and build them in place.");
             }
@@ -108,5 +123,8 @@ class Ref16 {
         void store(std::int16_t v) { std::memcpy(bytes_, &v, 2); }
         unsigned char bytes_[2] = {};
 };
+
+template <class T> using Ref16 = BasicRef16<T, false>;
+template <class T> using OptRef16 = BasicRef16<T, true>;
 
 } // namespace topstack

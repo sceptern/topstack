@@ -1,11 +1,12 @@
 #include <topstack/ref16.hpp>
 #include <topstack/grow_buf.hpp>
 #include <cstdio>
+#include <type_traits>
 #include <csignal>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
-using topstack::Ref16;
+using topstack::OptRef16;
 static int failures = 0;
 #define CHECK(c) do { if (c) std::printf("PASS  %s\n", #c); else { std::printf("FAIL  %s (line %d)\n", #c, __LINE__); ++failures; } } while (0)
 template <class F> static bool aborts(F f) {
@@ -13,11 +14,11 @@ template <class F> static bool aborts(F f) {
     if (pid == 0) { int d = open("/dev/null", O_WRONLY); dup2(d, 2); f(); _exit(0); }
     int st = 0; waitpid(pid, &st, 0); return WIFSIGNALED(st) && WTERMSIG(st) == SIGABRT;
 }
-struct Node { int v = 0; Ref16<Node> l = nullptr, r = nullptr; };
+struct Node { int v = 0; OptRef16<Node> l = nullptr, r = nullptr; };
 
 int main() {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    CHECK(sizeof(Ref16<Node>) == 2 && alignof(Ref16<Node>) == 1);
+    CHECK(sizeof(OptRef16<Node>) == 2 && alignof(OptRef16<Node>) == 1);
     topstack::Stack& s = topstack::plain_stack();
 
     // Near and far links, both directions.
@@ -115,6 +116,39 @@ int main() {
         topstack::GrowBuf<Node> a, b;
         Node* x = a.push(1); Node* y = b.push(2);
         x->l = y;
+    }));
+
+    // Ref16: never null. Same size; near and far links work as for OptRef16.
+    {
+        using topstack::Ref16;
+        CHECK(sizeof(Ref16<Node>) == 2 && alignof(Ref16<Node>) == 1);
+        static_assert(!std::is_constructible_v<Ref16<Node>, std::nullptr_t>);
+        static_assert(!std::is_assignable_v<Ref16<Node>&, std::nullptr_t>);
+        struct Ring { int v; Ref16<Ring> next; };
+        topstack::Scope sc;
+        Ring* a = topstack::make<Ring>();                // links are set below
+        Ring* b = topstack::make<Ring>();
+        (void)s.alloc(100 << 10, 1);                     // c is far from b
+        Ring* c = topstack::make<Ring>();
+        a->v = 1; b->v = 2; c->v = 3;
+        a->next = b;                                     // near
+        b->next = c;                                     // far, through a relay
+        c->next = a;                                     // far, backwards
+        int sum = 0;
+        Ring* p = a;
+        for (int i = 0; i < 6; i++) { sum += p->v; p = p->next.get(); }
+        CHECK(sum == 12 && p == a);
+    }
+    if (topstack::ref_checks) CHECK(aborts([] {
+        struct Ring { int v; topstack::Ref16<Ring> next; };
+        topstack::Scope sc;
+        (void)topstack::make<Ring>()->next.get();        // read before it was set
+    }));
+    if (topstack::ref_checks) CHECK(aborts([] {
+        struct Ring { int v; topstack::Ref16<Ring> next; };
+        topstack::Scope sc;
+        Ring* none = nullptr;
+        topstack::make<Ring>()->next = none;             // null through a pointer
     }));
 
     std::printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);

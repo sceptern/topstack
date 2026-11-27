@@ -1,8 +1,8 @@
-// Goose's sexp benchmark (bench/goose/sexp.goose) with Ref16<T> links, otherwise the
+// Goose's sexp benchmark (bench/goose/sexp.goose) with OptRef16<T> links, otherwise the
 // same as sexp_topstack.cpp: nodes only as big as their kind needs, symbol text
 // inline after its node, first-child / previous-sibling links, and the list of
 // roots in a GrowBuf on another stack. Nodes: symbol 4 bytes + text, number 7,
-// list 5 (with Ref<T>: 6, 9 and 9).
+// list 5 (with OptRef<T>: 6, 9 and 9).
 #include "bench.h"
 #include <topstack/grow_buf.hpp>
 #include <topstack/ref16.hpp>
@@ -14,9 +14,9 @@
 static const int PASSES = 4;
 
 struct Node { uint8_t kind; };                                    // 0 sym, 1 num, 2 list
-struct Sym  : Node { uint8_t len; topstack::Ref16<Node> next; };    // then `len` bytes of text
-struct Num  : Node { topstack::Packed<int32_t> v; topstack::Ref16<Node> next; };
-struct List : Node { topstack::Ref16<Node> first, next; };
+struct Sym  : Node { uint8_t len; topstack::OptRef16<Node> next; };    // then `len` bytes of text
+struct Num  : Node { topstack::Packed<int32_t> v; topstack::OptRef16<Node> next; };
+struct List : Node { topstack::OptRef16<Node> first, next; };
 static_assert(sizeof(Sym) == 4 && sizeof(Num) == 7 && sizeof(List) == 5);
 static const char* name_of(const Sym* s) { return reinterpret_cast<const char*>(s + 1); }
 
@@ -88,7 +88,7 @@ static Node* parse_node(topstack::Stack& s, Node* prev) {
 
 // --- walking -----------------------------------------------------------------
 
-static topstack::Ref16<Node> const& next_of(const Node* n) {
+static topstack::OptRef16<Node> const& next_of(const Node* n) {
     switch (n->kind) {
         case 0: return static_cast<const Sym*>(n)->next;
         case 1: return static_cast<const Num*>(n)->next;

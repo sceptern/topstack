@@ -54,7 +54,7 @@ side, but the usual C++ arenas still leave you with:
 
 struct Node {
     int value;
-    topstack::Ref<Node> left, right;      // 4-byte links: the node is 12 bytes
+    topstack::OptRef<Node> left, right;   // 4-byte links that may be null: the node is 12 bytes
 };
 
 Node* build(int depth) {
@@ -102,10 +102,10 @@ instead of corrupting memory.
    was opened. Don't use those objects afterwards, and don't let a buffer that was
    created *outside* a scope grow *inside* it on the same stack (that would free part
    of the buffer).
-3. **Build objects that contain links in place.** A `Ref` or `Ref16` stores the
-   distance from itself to its target, so it must live near its target, on the same
-   stack. Make such objects with `make` or `push(args...)`, not as local variables or
-   temporaries:
+3. **Build objects that contain links in place.** A link (`Ref`, `OptRef`, `Ref16`,
+   `OptRef16`) stores the distance from itself to its target, so it must live near its
+   target, on the same stack. Make such objects with `make` or `push(args...)`, not as
+   local variables or temporaries:
    ```cpp
    topstack::make<Node>(1, l, r);   // fine: built on the stack
    buf.push(1, l, r);               // fine
@@ -121,8 +121,8 @@ instead of corrupting memory.
 | `topstack/stack.hpp` | `Stack`, `Scope`, and `make` / `alloc` on the thread's default stack |
 | `topstack/stack_set.hpp` | `StackSet`, `default_set()`, `plain_stack()` (included by `stack.hpp`) |
 | `topstack/grow_buf.hpp` | `GrowBuf<T>` |
-| `topstack/ref.hpp` | `Ref<T>`, `Packed<T>` |
-| `topstack/ref16.hpp` | `Ref16<T>` |
+| `topstack/ref.hpp` | `Ref<T>`, `OptRef<T>`, `Packed<T>` |
+| `topstack/ref16.hpp` | `Ref16<T>`, `OptRef16<T>` |
 
 ### `Stack`: one data stack
 
@@ -168,6 +168,10 @@ topstack::GrowBuf<Token> mine(*stack);        // or on a stack you choose
 
 Token* t = tokens.push(kind, start, length);  // constructs in place; nullptr if out of space
 tokens.size(); tokens[3]; for (Token& t : tokens) { ... }
+
+topstack::GrowBuf<char> text;
+char* p = text.extend(n);                     // n more elements at once, uninitialized
+text.clear();                                 // empty it; refills from the same place
 ```
 
 - Elements never move, so pointers and references to them stay valid until the buffer
@@ -177,6 +181,11 @@ tokens.size(); tokens[3]; for (Token& t : tokens) { ... }
   new home. A moved-from buffer may only be destroyed or assigned to.
 - A push is a compare and a store; it only leaves that fast path to commit more memory
   or to resume after being sealed.
+- `extend(n)` adds `n` elements in one step without initializing them (for element
+  types that need no constructor, such as bytes); it is the way to write variable-size
+  records into a byte buffer. It returns `nullptr` if out of space.
+- `clear()` destroys the elements and keeps the buffer's place, so it can be refilled
+  without giving its stack back.
 
 ### `StackSet` and the default stacks
 
@@ -197,7 +206,7 @@ More than 63 buffers growing at once on one set is treated as a bug (most likely
 buffers that are never destroyed) and stops the program. If the operating system
 refuses to reserve a stack, the buffer has no stack and every push returns `nullptr`.
 
-### `Ref<T>` and `Packed<T>`: 4-byte links, packed nodes
+### `Ref<T>`, `OptRef<T>` and `Packed<T>`: 4-byte links, packed nodes
 
 ```cpp
 struct Expr { std::uint8_t tag; };
@@ -205,28 +214,35 @@ struct Bin  : Expr { topstack::Ref<Expr> l, r; };            // 9 bytes
 struct Num  : Expr { topstack::Packed<std::int32_t> v; };    // 5 bytes
 
 Bin* b = topstack::make<Bin>(Expr{1}, left, right);
-Expr* l = b->l.get();                 // also b->l->..., *b->l, if (b->l), b->l == p
+Expr* l = b->l.get();                 // also b->l->..., *b->l, b->l == p
 ```
 
 - A `Ref<T>` is 4 bytes: the signed distance from the link to its target, as in Goose's
-  self-relative references. Following it is one addition. Null is offset 0.
+  self-relative references. Following it is one addition.
+- **`Ref<T>` is never null, `OptRef<T>` may be,** like Goose's `T&` and `T&?`. Use
+  `OptRef` where a link can be missing (a leaf's children, the end of a list) and `Ref`
+  everywhere else: it skips the null check on every read and write, which makes
+  link-heavy code faster (an LRU cache 7%, the interp benchmark 11% with GCC).
+  `link = nullptr` and `if (link)` only compile for an `OptRef`; in debug builds, reading
+  a `Ref` before it was set, or setting it to null through a pointer, stops the program.
 - The target must be within 2 GB of the link, which is always true within one stack.
-- Copying a `Ref` (or a struct containing one) recomputes the offset for the new place;
+- Copying a link (or a struct containing one) recomputes the offset for the new place;
   copying raw bytes with `memcpy` does not.
-- `Ref` and `Packed<T>` have alignment 1, so a node made of a tag, `Ref`s and `Packed`
+- Links and `Packed<T>` have alignment 1, so a node made of a tag, links and `Packed`
   fields has no padding, and such nodes sit back to back on the stack.
 - **Checks:** storing a target that is too far away (or at the link's own address) is
   checked in debug builds, like `assert`. Define `TOPSTACK_CHECKED_REFS` to keep the
   checks in release builds too. On the benchmarks they cost 0 to 3%, except bintrees
   with Clang (about 25%), where storing links is almost all the work.
 
-### `Ref16<T>`: 2-byte links for big structures
+### `Ref16<T>` and `OptRef16<T>`: 2-byte links for big structures
 
 ```cpp
 struct Bin : Expr { topstack::Ref16<Expr> l, r; };          // 5 bytes instead of 9
 ```
 
-`Ref16<T>` is used exactly like `Ref<T>`, in half the space:
+`Ref16<T>` is used exactly like `Ref<T>`, in half the space, and `OptRef16<T>` like
+`OptRef<T>`:
 
 - A target within 16 KB of the link is stored directly in the 2 bytes.
 - A farther target gets a *relay*: a 4-byte slot that holds the real offset. Each 64 KB

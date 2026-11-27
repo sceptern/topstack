@@ -1,7 +1,7 @@
 // Goose's sexp benchmark (bench/goose/sexp.goose) with topstack: generate an
 // s-expression text, parse it into a tree, walk it. As in Goose:
 //   - the text grows in a GrowBuf on its own stack;
-//   - each node is only as big as its kind needs, with no padding (Ref<T> and
+//   - each node is only as big as its kind needs, with no padding (OptRef<T> and
 //     Packed<T> have alignment 1), and a symbol's text is stored inline right
 //     after its node (not as a view into the source text);
 //   - links are self-relative 32-bit Refs, first-child / previous-sibling, so
@@ -19,9 +19,9 @@
 static const int PASSES = 4;
 
 struct Node { uint8_t kind; };                                    // 0 sym, 1 num, 2 list
-struct Sym  : Node { uint8_t len; topstack::Ref<Node> next; };    // then `len` bytes of text
-struct Num  : Node { topstack::Packed<int32_t> v; topstack::Ref<Node> next; };
-struct List : Node { topstack::Ref<Node> first, next; };
+struct Sym  : Node { uint8_t len; topstack::OptRef<Node> next; };    // then `len` bytes of text
+struct Num  : Node { topstack::Packed<int32_t> v; topstack::OptRef<Node> next; };
+struct List : Node { topstack::OptRef<Node> first, next; };
 static_assert(sizeof(Sym) == 6 && sizeof(Num) == 9 && sizeof(List) == 9);
 static const char* name_of(const Sym* s) { return reinterpret_cast<const char*>(s + 1); }
 
@@ -93,7 +93,7 @@ static Node* parse_node(topstack::Stack& s, Node* prev) {
 
 // --- walking -----------------------------------------------------------------
 
-static topstack::Ref<Node> const& next_of(const Node* n) {
+static topstack::OptRef<Node> const& next_of(const Node* n) {
     switch (n->kind) {
         case 0: return static_cast<const Sym*>(n)->next;
         case 1: return static_cast<const Num*>(n)->next;

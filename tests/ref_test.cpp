@@ -5,13 +5,14 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <type_traits>
 
 #include <csignal>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-using topstack::Ref;
+using topstack::OptRef;
 
 static int failures = 0;
 
@@ -38,19 +39,19 @@ static bool aborts(F f) {
     return WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT;
 }
 
-struct Node { Ref<Node> l, r; int v = 0; };
-struct Tree { Ref<Node> l, r; };
+struct Node { OptRef<Node> l, r; int v = 0; };
+struct Tree { OptRef<Node> l, r; };
 
 int main() {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-    CHECK(sizeof(Ref<Node>) == 4 && alignof(Ref<Node>) == 1);
+    CHECK(sizeof(OptRef<Node>) == 4 && alignof(OptRef<Node>) == 1);
     CHECK(sizeof(Tree) == 8);
 
     // Packing: a tag next to Refs and Packed fields leaves no padding.
     {
         struct Expr { std::uint8_t tag; };
-        struct Bin : Expr { Ref<Expr> l, r; };
+        struct Bin : Expr { OptRef<Expr> l, r; };
         struct Num : Expr { topstack::Packed<std::int32_t> v; };
         CHECK(sizeof(Bin) == 9 && sizeof(Num) == 5 && alignof(Bin) == 1);
 
@@ -72,8 +73,8 @@ int main() {
 
     // Null by default, from nullptr, and after assigning nullptr.
     {
-        Ref<int> a;
-        Ref<int> b = nullptr;
+        OptRef<int> a;
+        OptRef<int> b = nullptr;
         CHECK(!a && a.get() == nullptr && !b);
         int x = 5;
         a = &x;
@@ -145,8 +146,52 @@ int main() {
     // Links to things that aren't on a stack work too, if they are close enough.
     {
         int local = 7;
-        Ref<int> r = &local;
+        OptRef<int> r = &local;
         CHECK(*r == 7);
+    }
+
+    // Ref: same size and packing as OptRef, and null can't even be written.
+    {
+        using topstack::Ref;
+        CHECK(sizeof(Ref<int>) == 4 && alignof(Ref<int>) == 1);
+        static_assert(!std::is_constructible_v<Ref<int>, std::nullptr_t>);
+        static_assert(!std::is_assignable_v<Ref<int>&, std::nullptr_t>);
+
+        // A doubly linked list with two sentinels, the shape Ref is for.
+        struct Item { int v; Ref<Item> prev, next; };
+        topstack::GrowBuf<Item> items;
+        Item* head = items.push();
+        Item* tail = items.push();
+        head->v = tail->v = -1;
+        head->next = tail;
+        tail->prev = head;
+        auto link_front = [&](Item* n) {
+            Item* q = head->next.get();
+            n->prev = head;
+            n->next = q;
+            q->prev = n;
+            head->next = n;
+        };
+        for (int i = 1; i <= 3; i++) {
+            Item* n = items.push();
+            n->v = i;
+            link_front(n);
+        }
+        // Move item 1 (now last) to the front: unlink, then link again.
+        Item* one = &items[2];
+        one->prev->next = one->next.get();
+        one->next->prev = one->prev.get();
+        link_front(one);
+        std::string order;
+        for (Item* c = head->next.get(); c != tail; c = c->next.get()) order += char('0' + c->v);
+        CHECK(order == "132");
+        std::string back;
+        for (Item* c = tail->prev.get(); c != head; c = c->prev.get()) back += char('0' + c->v);
+        CHECK(back == "231");
+
+        // Copying a link re-encodes it for its new address.
+        items[3].next = head->next;
+        CHECK(items[3].next.get() == head->next.get() && items[3].next == one);
     }
 
     // The remaining checks only exist when ref_checks is on (debug builds, or
@@ -162,18 +207,33 @@ int main() {
     // A target more than 2 GB away can't be stored. (Only the address is used;
     // nothing is read there.)
     if (topstack::ref_checks) CHECK(aborts([] {
-        Ref<int> r;
+        OptRef<int> r;
         int* far = reinterpret_cast<int*>(reinterpret_cast<std::uintptr_t>(&r) + (std::uintptr_t(3) << 30));
         r = far;
     }));
     if (topstack::ref_checks) CHECK(aborts([] {
-        Ref<int> r;
+        OptRef<int> r;
         int* far = reinterpret_cast<int*>(reinterpret_cast<std::uintptr_t>(&r) - (std::uintptr_t(3) << 30));
         r = far;
     }));
+    // Ref: reading one that was never set, or setting it to null, stops.
+    if (topstack::ref_checks) CHECK(aborts([] {
+        topstack::GrowBuf<topstack::Ref<int>> links;
+        (void)links.push()->get();
+    }));
+    if (topstack::ref_checks) CHECK(aborts([] {
+        topstack::GrowBuf<topstack::Ref<int>> links;
+        int* none = nullptr;
+        *links.push() = none;
+    }));
+    if (topstack::ref_checks) CHECK(aborts([] {
+        topstack::Ref<int> r;
+        r = reinterpret_cast<int*>(reinterpret_cast<std::uintptr_t>(&r) + (std::uintptr_t(3) << 30));
+    }));
+
     // Just inside the range is fine.
     {
-        Ref<int> r;
+        OptRef<int> r;
         int* edge = reinterpret_cast<int*>(reinterpret_cast<std::uintptr_t>(&r) + 0x7FFFFFF0u);
         r = edge;
         CHECK(r.get() == edge);

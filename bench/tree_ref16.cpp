@@ -1,5 +1,5 @@
-// Goose's tree benchmark (bench/goose/tree.goose) with Ref16<T>: 2-byte links, so a
-// node is 8 bytes (12 with Ref<T>, as in Goose). Children are pushed before their
+// Goose's tree benchmark (bench/goose/tree.goose) with OptRef16<T>: 2-byte links, so a
+// node is 8 bytes (12 with OptRef<T>, as in Goose). Children are pushed before their
 // parent, so almost every link is near; the few far ones near the root use relays.
 #include "bench.h"
 #include <topstack/grow_buf.hpp>
@@ -9,7 +9,7 @@
 #define DEPTH BENCH_N
 #endif
 
-struct TNode { topstack::Packed<int32_t> v; topstack::Ref16<TNode> l, r; };
+struct TNode { topstack::Packed<int32_t> v; topstack::OptRef16<TNode> l, r; };
 static_assert(sizeof(TNode) == 8);
 
 static topstack::GrowBuf<TNode> pool;

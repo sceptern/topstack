@@ -162,6 +162,85 @@ int main() {
         CHECK(buf.size() == pushed);
     }
 
+    // extend: adds n elements at once, contiguous with what was there.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<unsigned char> buf(*s);
+        (void)buf.push(1);
+        unsigned char* p = buf.extend(5);
+        CHECK(p == &buf[1] && buf.size() == 6);
+        for (int i = 0; i < 5; i++) p[i] = (unsigned char)(10 + i);
+        CHECK(buf.extend(0) == buf.end() && buf.size() == 6);
+        unsigned char* big = buf.extend(200000);          // crosses several commit steps
+        CHECK(big == &buf[6] && buf.size() == 200006);
+        big[199999] = 7;
+        CHECK(buf[0] == 1 && buf[1] == 10 && buf[5] == 14 && buf[200005] == 7);
+    }
+
+    // extend out of space returns nullptr and leaves the buffer as it was.
+    {
+        auto [s, err] = Stack::create(4096);
+        GrowBuf<std::uint32_t> buf(*s);
+        CHECK(buf.extend(1000) != nullptr && buf.size() == 1000);
+        CHECK(buf.extend(25) == nullptr && buf.size() == 1000);
+        CHECK(buf.extend(24) != nullptr && buf.size() == 1024);
+        CHECK(buf.extend(std::size_t(-1)) == nullptr && buf.size() == 1024);
+    }
+
+    // clear: empties the buffer, which then refills from the same place.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> buf(*s);
+        for (int i = 0; i < 1000; i++) (void)buf.push(i);
+        int* first = buf.data();
+        buf.clear();
+        CHECK(buf.empty() && buf.data() == first);
+        (void)buf.push(5);
+        CHECK(buf.size() == 1 && buf[0] == 5 && &buf[0] == first);
+    }
+
+    // clear runs destructors, newest first.
+    {
+        auto [s, err] = Stack::create();
+        Tracker::alive = 0;
+        Tracker::logged = 0;
+        {
+            GrowBuf<Tracker> buf(*s);
+            (void)buf.push(1);
+            (void)buf.push(2);
+            buf.clear();
+            CHECK(Tracker::alive == 0 && Tracker::logged == 2);
+            CHECK(Tracker::log[0] == 2 && Tracker::log[1] == 1);
+            (void)buf.push(3);
+        }
+        CHECK(Tracker::alive == 0 && Tracker::logged == 3 && Tracker::log[2] == 3);
+    }
+
+    // clear after the buffer was sealed by an allocation that has since been freed:
+    // the buffer is back on top, so it can be refilled.
+    {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> buf(*s);
+        (void)buf.push(1);
+        {
+            topstack::Scope scope(*s);
+            (void)s->make<int>(2);
+        }
+        buf.clear();
+        CHECK(buf.push(3) != nullptr && buf.size() == 1 && buf[0] == 3);
+    }
+
+    // clear while something is still allocated after the buffer: pushing is still
+    // the "not on top" error.
+    CHECK(aborts([] {
+        auto [s, err] = Stack::create();
+        GrowBuf<int> buf(*s);
+        (void)buf.push(1);
+        (void)s->make<int>(2);
+        buf.clear();
+        (void)buf.push(3);
+    }));
+
     // The rule: pushing after something else was allocated on the same stack aborts.
     CHECK(aborts([] {
         auto [s, err] = Stack::create();
