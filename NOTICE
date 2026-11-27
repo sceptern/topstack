@@ -22,7 +22,9 @@ bench/LICENSE-goose):
     bench/bintrees_topstack.cpp, bench/bintrees_ref.cpp, bench/bintrees_thread.cpp,
     bench/bintrees_pmr.cpp, bench/bintrees_llvm.cpp, bench/push_topstack.cpp,
     bench/push_pinned.cpp, bench/tree_topstack.cpp, bench/interp_topstack.cpp,
-    bench/sexp_topstack.cpp, bench/rust_bumpalo/templates/*.rs
+    bench/sexp_topstack.cpp, bench/bintrees_ref16.cpp, bench/tree_ref16.cpp,
+    bench/interp_ref16.cpp, bench/sexp_ref16.cpp, bench/bintrees_protobuf.cpp,
+    bench/rust_bumpalo/templates/*.rs
 
 The comparison scripts also copy further Goose sources into bench/bin/ at run
 time; those copies are not part of this repository.
