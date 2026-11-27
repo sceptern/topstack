@@ -1,5 +1,6 @@
 #pragma once
 #include <topstack/stack.hpp>
+#include <topstack/stack_set.hpp>
 
 #include <cstdio>
 #include <cstdlib>
@@ -9,16 +10,14 @@ namespace topstack {
 template <class T>
 class GrowBuf {
 public:
-    explicit GrowBuf(Stack& s) : stack_(&s), mark_(s.mark()) {
-        s.reclaim_top();
-        AllocResult r = s.try_alloc(0, alignof(T));
-        char* start = r.ptr ? static_cast<char*>(r.ptr) : s.base_ + s.top_;
-        data_ = reinterpret_cast<T*>(start);
-        state_ = {start, start};
-        if (r.ptr) {
-            acquire();
+    explicit GrowBuf(Stack& s) { start_on(s); }
+    GrowBuf() : GrowBuf(default_set()) {}
+        explicit GrowBuf(StackSet& set) : set_(&set), lent_(set.take()) {
+        if (lent_ >= 0) {
+            start_on(set.at(lent_));
         }
     }
+
 
     ~GrowBuf() { release(); }
 
@@ -26,7 +25,7 @@ public:
     GrowBuf& operator=(const GrowBuf&) = delete;
 
     GrowBuf(GrowBuf&& other) noexcept
-        : stack_(other.stack_), mark_(other.mark_), data_(other.data_), state_(other.state_) {
+        : stack_(other.stack_), mark_(other.mark_), data_(other.data_), state_(other.state_), set_(other.set_), lent_(other.lent_) {
         take_over_from(other);
     }
 
@@ -37,6 +36,8 @@ public:
             mark_ = other.mark_;
             data_ = other.data_;
             state_ = other.state_;
+            set_ = other.set_;
+            lent_ = other.lent_;
             take_over_from(other);
         }
         return *this;
@@ -66,10 +67,12 @@ public:
     const T* end() const                     { return reinterpret_cast<const T*>(state_.end); }
 
 private:
-    Stack* stack_;
-    Stack::Mark mark_;
-    T* data_;
-    Stack::GrowState state_;
+    Stack* stack_ = nullptr;
+    Stack::Mark mark_{};
+    T* data_ = nullptr;
+    Stack::GrowState state_{};
+    StackSet* set_ = nullptr;
+    int lent_ = -1;
 
     void acquire() {
         stack_->grower_ = &state_;
@@ -78,7 +81,10 @@ private:
     }
 
     TOPSTACK_SLOW_PATH bool make_room(char* next) {
-        assert(stack_ && "push to a moved-from GrowBuf");
+        if (!stack_) {
+            assert(set_ && "push to a moved-from GrowBuf");
+            return false;
+        }
         Stack& s = *stack_;
         if (s.grower_ != &state_) {
             s.reclaim_top();
@@ -121,6 +127,9 @@ private:
         if (s.top_ == end_offset) {
             s.rewind(mark_);
         }
+        if (lent_ >= 0) {
+            set_->give_back(lent_);
+        }
         stack_ = nullptr;
     }
     void take_over_from(GrowBuf& other) noexcept {
@@ -130,6 +139,20 @@ private:
         char* empty = reinterpret_cast<char*>(other.data_);
         other.stack_ = nullptr;
         other.state_ = {empty, empty};
+        other.set_ = nullptr;
+        other.lent_ = -1;
+    }
+    void start_on(Stack& s) {
+        stack_ = &s;
+        mark_ = s.mark();
+        s.reclaim_top();
+        AllocResult r = s.try_alloc(0, alignof(T));
+        char* start = r.ptr ? static_cast<char*>(r.ptr) : s.base_ + s.top_;
+        data_ = reinterpret_cast<T*>(start);
+        state_ = {start, start};
+        if (r.ptr) {
+            acquire();
+        }
     }
 
 };

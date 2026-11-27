@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <cassert>
 #include <bit>
@@ -272,6 +273,7 @@ class Scope {
         Stack::Mark mark_;
     public:
         explicit Scope(Stack& s) : stack_(s), mark_(s.mark()) {}
+        inline Scope();
         ~Scope() { stack_.rewind(mark_); }
         Scope(const Scope&) = delete;
         Scope& operator=(const Scope&) = delete;
@@ -362,3 +364,5 @@ void Stack::rewind(Mark m) {
 }
 
 } // end of topstack namespace
+
+#include <topstack/stack_set.hpp>
