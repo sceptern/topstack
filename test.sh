@@ -4,7 +4,7 @@ mkdir -p build
 F="-std=c++20 -Wall -Wextra -I include"
 SAN="-O1 -g -fsanitize=address,undefined"
 
-for t in stack_test grow_buf_test stack_set_test; do
+for t in stack_test grow_buf_test stack_set_test ref_test; do
     echo "== $t"
     g++ $F tests/$t.cpp -o build/$t
     ./build/$t | tail -1
