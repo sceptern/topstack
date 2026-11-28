@@ -1,0 +1,126 @@
+topstack comparison, Fri Nov 27 20:50:40 MST 2026
+machine: Linux 6.6.87.2-microsoft-standard-WSL2, 16 cores
+compilers: g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; Ubuntu clang version 18.1.3 (1ubuntu1)
+scripts: json
+
+CPU: AMD Ryzen 9 6900HX with Radeon Graphics
+
+== twitter, 200 rounds of parse + walk + print (all outputs match)
+./bin/json/cjson-gcc          666.6 ms      4.7 MB
+./bin/json/cjson_hooks-gcc    465.4 ms      5.0 MB
+./bin/json/cjson_link8-gcc    367.8 ms      3.1 MB
+./bin/json/cjson_link8_fast-gcc    259.7 ms      3.6 MB
+./bin/json/cjson_ts-gcc       323.3 ms      3.2 MB
+./bin/json/cjson_ts_fast-gcc    225.7 ms      3.6 MB
+./bin/json/rapidjson-gcc      520.3 ms      4.0 MB
+./bin/json/rapidjson_fast-gcc    278.7 ms      3.6 MB
+./bin/json/rapidjson_insitu-gcc    289.7 ms      3.6 MB
+./bin/json/cjson-clang        661.6 ms      5.1 MB
+./bin/json/cjson_hooks-clang    462.1 ms      5.4 MB
+./bin/json/cjson_link8-clang    347.5 ms      3.4 MB
+./bin/json/cjson_link8_fast-clang    241.9 ms      3.5 MB
+./bin/json/cjson_ts-clang     338.7 ms      3.5 MB
+./bin/json/cjson_ts_fast-clang    230.1 ms      3.6 MB
+./bin/json/rapidjson-clang    516.9 ms      4.2 MB
+./bin/json/rapidjson_fast-clang    356.0 ms      3.9 MB
+./bin/json/rapidjson_insitu-clang    363.9 ms      3.9 MB
+
+== twitter, 200 rounds of parse + walk (all outputs match)
+./bin/json/cjson_hooks_parse-gcc    230.9 ms      3.5 MB
+./bin/json/cjson_link8_fast_parse-gcc    117.3 ms      3.0 MB
+./bin/json/cjson_link8_parse-gcc    156.9 ms      2.6 MB
+./bin/json/cjson_parse-gcc    332.0 ms      4.0 MB
+./bin/json/cjson_ts_fast_parse-gcc     97.9 ms      3.0 MB
+./bin/json/cjson_ts_parse-gcc    142.4 ms      2.6 MB
+./bin/json/rapidjson_fast_parse-gcc    175.9 ms      3.1 MB
+./bin/json/rapidjson_insitu_parse-gcc    170.3 ms      3.1 MB
+./bin/json/rapidjson_parse-gcc    343.0 ms      3.5 MB
+./bin/json/cjson_hooks_parse-clang    235.5 ms      3.8 MB
+./bin/json/cjson_link8_fast_parse-clang    102.6 ms      3.0 MB
+./bin/json/cjson_link8_parse-clang    156.8 ms      2.9 MB
+./bin/json/cjson_parse-clang    341.9 ms      4.2 MB
+./bin/json/cjson_ts_fast_parse-clang     90.8 ms      3.0 MB
+./bin/json/cjson_ts_parse-clang    147.4 ms      2.9 MB
+./bin/json/rapidjson_fast_parse-clang    259.6 ms      3.4 MB
+./bin/json/rapidjson_insitu_parse-clang    252.5 ms      3.4 MB
+./bin/json/rapidjson_parse-clang    345.6 ms      3.7 MB
+
+== citm_catalog, 100 rounds of parse + walk + print (all outputs match)
+./bin/json/cjson-gcc          616.3 ms      7.6 MB
+./bin/json/cjson_hooks-gcc    461.4 ms      7.4 MB
+./bin/json/cjson_link8-gcc    371.8 ms      4.2 MB
+./bin/json/cjson_link8_fast-gcc    223.0 ms      4.6 MB
+./bin/json/cjson_ts-gcc       302.6 ms      4.4 MB
+./bin/json/cjson_ts_fast-gcc    177.0 ms      4.9 MB
+./bin/json/rapidjson-gcc      328.6 ms      6.4 MB
+./bin/json/rapidjson_fast-gcc    253.0 ms      6.3 MB
+./bin/json/rapidjson_insitu-gcc    260.5 ms      6.3 MB
+./bin/json/cjson-clang        624.1 ms      8.0 MB
+./bin/json/cjson_hooks-clang    460.7 ms      7.9 MB
+./bin/json/cjson_link8-clang    335.5 ms      4.5 MB
+./bin/json/cjson_link8_fast-clang    192.6 ms      4.6 MB
+./bin/json/cjson_ts-clang     307.0 ms      4.8 MB
+./bin/json/cjson_ts_fast-clang    172.4 ms      4.9 MB
+./bin/json/rapidjson-clang    325.1 ms      6.6 MB
+./bin/json/rapidjson_fast-clang    293.1 ms      6.6 MB
+./bin/json/rapidjson_insitu-clang    304.0 ms      6.6 MB
+
+== citm_catalog, 100 rounds of parse + walk (all outputs match)
+./bin/json/cjson_hooks_parse-gcc    289.6 ms      6.0 MB
+./bin/json/cjson_link8_fast_parse-gcc    129.8 ms      4.0 MB
+./bin/json/cjson_link8_parse-gcc    190.1 ms      3.6 MB
+./bin/json/cjson_parse-gcc    371.5 ms      6.9 MB
+./bin/json/cjson_ts_fast_parse-gcc    104.9 ms      4.2 MB
+./bin/json/cjson_ts_parse-gcc    178.4 ms      3.9 MB
+./bin/json/rapidjson_fast_parse-gcc    204.1 ms      5.8 MB
+./bin/json/rapidjson_insitu_parse-gcc    210.5 ms      5.8 MB
+./bin/json/rapidjson_parse-gcc    298.4 ms      5.8 MB
+./bin/json/cjson_hooks_parse-clang    274.9 ms      6.2 MB
+./bin/json/cjson_link8_fast_parse-clang    110.4 ms      3.9 MB
+./bin/json/cjson_link8_parse-clang    194.3 ms      3.9 MB
+./bin/json/cjson_parse-clang    385.3 ms      7.1 MB
+./bin/json/cjson_ts_fast_parse-clang     94.7 ms      4.1 MB
+./bin/json/cjson_ts_parse-clang    170.7 ms      4.1 MB
+./bin/json/rapidjson_fast_parse-clang    241.4 ms      6.0 MB
+./bin/json/rapidjson_insitu_parse-clang    251.4 ms      6.1 MB
+./bin/json/rapidjson_parse-clang    286.7 ms      6.0 MB
+
+== canada, 10 rounds of parse + walk + print (all outputs match)
+./bin/json/cjson-gcc          953.2 ms     19.4 MB
+./bin/json/cjson_hooks-gcc    869.5 ms     19.8 MB
+./bin/json/cjson_link8-gcc    826.8 ms      7.1 MB
+./bin/json/cjson_link8_fast-gcc    229.7 ms      7.5 MB
+./bin/json/cjson_ts-gcc       793.2 ms      7.5 MB
+./bin/json/cjson_ts_fast-gcc    218.2 ms      8.0 MB
+./bin/json/rapidjson-gcc      191.3 ms     11.1 MB
+./bin/json/rapidjson_fast-gcc    141.7 ms     11.0 MB
+./bin/json/rapidjson_insitu-gcc    186.4 ms     11.1 MB
+./bin/json/cjson-clang        964.5 ms     19.8 MB
+./bin/json/cjson_hooks-clang    866.5 ms     20.1 MB
+./bin/json/cjson_link8-clang    810.2 ms      7.4 MB
+./bin/json/cjson_link8_fast-clang    218.9 ms      7.5 MB
+./bin/json/cjson_ts-clang     787.3 ms      7.9 MB
+./bin/json/cjson_ts_fast-clang    209.0 ms      8.0 MB
+./bin/json/rapidjson-clang    195.8 ms     11.3 MB
+./bin/json/rapidjson_fast-clang    143.7 ms     11.2 MB
+./bin/json/rapidjson_insitu-clang    192.0 ms     11.3 MB
+
+== canada, 10 rounds of parse + walk (all outputs match)
+./bin/json/cjson_hooks_parse-gcc    181.8 ms     13.9 MB
+./bin/json/cjson_link8_fast_parse-gcc     62.0 ms      5.4 MB
+./bin/json/cjson_link8_parse-gcc    142.1 ms      4.9 MB
+./bin/json/cjson_parse-gcc    231.5 ms     16.5 MB
+./bin/json/cjson_ts_fast_parse-gcc     52.8 ms      6.0 MB
+./bin/json/cjson_ts_parse-gcc    142.6 ms      5.6 MB
+./bin/json/rapidjson_fast_parse-gcc     65.7 ms      8.7 MB
+./bin/json/rapidjson_insitu_parse-gcc    108.6 ms      8.6 MB
+./bin/json/rapidjson_parse-gcc    117.0 ms      8.7 MB
+./bin/json/cjson_hooks_parse-clang    185.3 ms     14.1 MB
+./bin/json/cjson_link8_fast_parse-clang     52.4 ms      5.4 MB
+./bin/json/cjson_link8_parse-clang    133.8 ms      5.2 MB
+./bin/json/cjson_parse-clang    245.1 ms     16.8 MB
+./bin/json/cjson_ts_fast_parse-clang     48.2 ms      6.0 MB
+./bin/json/cjson_ts_parse-clang    131.1 ms      5.9 MB
+./bin/json/rapidjson_fast_parse-clang     67.1 ms      8.9 MB
+./bin/json/rapidjson_insitu_parse-clang    114.1 ms      8.9 MB
+./bin/json/rapidjson_parse-clang    121.5 ms      8.9 MB

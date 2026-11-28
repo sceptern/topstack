@@ -491,26 +491,34 @@ the nativejson-benchmark (`bench/compare_json.sh`), against cJSON itself and
   a `malloc` per string.
 - **Level 3, `Link8`** (`bench/json/link8.cpp`): level 2 with 1-byte links, built
   bottom-up; parse-only (the tree can be read and printed, not edited).
+- **Fast** (`-DFAST=1`): levels 2 and 3 with faster parsing code and the same output:
+  `std::from_chars` and `std::to_chars` for numbers instead of cJSON's `strtod`,
+  `sprintf` and `sscanf`, and 8 bytes at a time when scanning strings and whitespace.
+  This code isn't topstack's; it would speed up cJSON too. Separate rows, so the layout
+  and the code are measured apart.
 - RapidJSON: `Parse`, `ParseInsitu`, and its default number mode, which is faster but
   reads 13% of canada's numbers one or two steps off the nearest double (a 64-bit
   integer times a power of ten, rounded twice). Every other version reads numbers
   exactly; the script checks that all of them agree.
 
-From `bench/results/2026-11-27_1933.txt`; best of GCC and Clang; 200, 100 and 10
-rounds. **Parse and walk**, time and peak memory (the peak includes the input text and
-about 1.2 MB for the program itself):
+From `bench/results/2026-11-27_2050.txt` (AMD Ryzen 9 6900HX); best of GCC and Clang;
+200, 100 and 10 rounds. **Parse and walk**, time and peak memory (the peak includes the
+input text and about 1.2 MB for the program itself):
 
 | | twitter (632 KB) | citm_catalog (1.7 MB) | canada (2.3 MB) |
 |---|---|---|---|
-| cJSON | 353 ms, 3.9 MB | 389 ms, 6.9 MB | 245 ms, 16.5 MB |
-| **level 1** (hooks) | 247 ms, 3.5 MB | 287 ms, 6.0 MB | 193 ms, 13.9 MB |
-| **level 2** (`OptRef`) | **158 ms**, **2.6 MB** | **184 ms**, 3.9 MB | 142 ms, 5.6 MB |
-| **level 3** (`Link8`) | 163 ms, **2.6 MB** | 197 ms, **3.6 MB** | 140 ms, **4.9 MB** |
-| RapidJSON `Parse` | 362 ms, 3.5 MB | 301 ms, 5.8 MB | 124 ms, 8.7 MB |
-| RapidJSON `ParseInsitu` | 182 ms, 3.1 MB | 218 ms, 5.8 MB | 114 ms, 8.7 MB |
-| RapidJSON, inexact numbers | 189 ms, 3.2 MB | 206 ms, 5.8 MB | **70 ms**, 8.7 MB |
+| cJSON | 332 ms, 4.0 MB | 372 ms, 6.9 MB | 232 ms, 16.5 MB |
+| **level 1** (hooks) | 231 ms, 3.5 MB | 275 ms, 6.0 MB | 182 ms, 13.9 MB |
+| **level 2** (`OptRef`) | 142 ms, **2.6 MB** | 171 ms, 3.9 MB | 131 ms, 5.6 MB |
+| **level 3** (`Link8`) | 157 ms, **2.6 MB** | 190 ms, **3.6 MB** | 134 ms, **4.9 MB** |
+| **level 2, fast** | **91 ms**, 3.0 MB | **95 ms**, 4.1 MB | **48 ms**, 6.0 MB |
+| **level 3, fast** | 103 ms, 3.0 MB | 110 ms, 3.9 MB | 52 ms, 5.4 MB |
+| RapidJSON `Parse` | 343 ms, 3.5 MB | 287 ms, 5.8 MB | 117 ms, 8.7 MB |
+| RapidJSON `ParseInsitu` | 170 ms, 3.1 MB | 211 ms, 5.8 MB | 109 ms, 8.6 MB |
+| RapidJSON, inexact numbers | 176 ms, 3.1 MB | 204 ms, 5.8 MB | 66 ms, 8.7 MB |
 
-**The tree itself**, the bytes one parsed document uses (the same on any machine):
+**The tree itself**, the bytes one parsed document uses (the same on any machine, and
+for the fast builds):
 
 | | twitter | citm_catalog | canada |
 |---|---|---|---|
@@ -527,34 +535,36 @@ about 1.2 MB for the program itself):
 
 | | twitter | citm_catalog | canada |
 |---|---|---|---|
-| cJSON | 709 ms | 652 ms | 1002 ms |
-| level 1 | 505 ms | 490 ms | 915 ms |
-| level 2 | 353 ms | 328 ms | 831 ms |
-| level 3 | 388 ms | 351 ms | 850 ms |
-| RapidJSON, best exact | 305 ms | 274 ms | 199 ms |
-| RapidJSON, inexact numbers | **298 ms** | **268 ms** | **149 ms** |
+| cJSON | 662 ms | 616 ms | 953 ms |
+| level 1 | 462 ms | 461 ms | 867 ms |
+| level 2 | 323 ms | 303 ms | 787 ms |
+| level 3 | 348 ms | 336 ms | 810 ms |
+| level 2, fast | **226 ms** | **172 ms** | 209 ms |
+| level 3, fast | 242 ms | 193 ms | 219 ms |
+| RapidJSON, best exact | 290 ms | 261 ms | 186 ms |
+| RapidJSON, inexact numbers | 279 ms | 253 ms | **142 ms** |
 
 - **Hooks alone make cJSON 1.3 to 1.4x faster**, with no change to cJSON: allocation
   becomes a bump and freeing a document a single step. The tree also shrinks by 20 to
   26% (no `malloc` headers). Printing uses a bit more memory than with `malloc`, because
   cJSON grows its print buffer by copying it and a stack can't take back the old copies.
-- **The topstack layout makes it 1.7 to 2.2x faster and 4 to 7x smaller** than cJSON,
-  with the same parsing code: the gain is the memory layout alone.
-- **Against RapidJSON**, level 2 parses faster than every RapidJSON mode on twitter
-  (1.15x its in-situ parse, 2.3x its `Parse`) and citm_catalog (1.1x to 1.6x); on canada,
-  which is almost all numbers, RapidJSON is faster: cJSON reads each number with glibc's
-  `strtod` on a copy. Level 3's tree is 42 to 57% smaller than RapidJSON's `Parse`, and
-  levels 2 and 3 have the lowest peak memory on every file.
-- **Printing** is where cJSON's code costs most: each number is printed with `sprintf`,
-  read back with `sscanf` to check it, and sometimes printed again, so RapidJSON prints
-  faster on all three files, 4 to 5.6x on canada.
-- `Link8` saves 8 to 34% over `OptRef` and costs up to 7% of the parse time (on
-  canada it's even; building bottom-up looks at each key twice).
-- **Fast builds** (`-DFAST=1`, rows `cjson_ts_fast` and `cjson_link8_fast`): levels 2 and
-  3 with faster parsing code and the same output: `std::from_chars` and `std::to_chars`
-  for numbers instead of `strtod`, `sprintf` and `sscanf`, and 8 bytes at a time when
-  scanning strings and whitespace. This code isn't topstack's; it would speed up cJSON
-  too. Their numbers will be added from the next run on this machine.
+- **The topstack layout makes it 1.8 to 2.3x faster and 4 to 7x smaller** than cJSON,
+  with the same parsing code: the gain is the memory layout alone. That is already
+  1.2x faster than RapidJSON's fastest mode on twitter and citm_catalog.
+- **Faster parsing code makes level 2 another 1.6 to 2.7x faster**, 3.7 to 4.8x faster
+  than cJSON in all. cJSON's own code was its bottleneck: glibc's `strtod` on a copy of
+  each number (60% of the instructions on canada), scanning one byte at a time, and
+  printing each number with `sprintf`, then reading it back with `sscanf` to check it.
+- **Level 2, fast, parses 1.4 to 2.2x faster than every RapidJSON mode**, including
+  its inexact one, with less peak memory (3 to 30% less). With printing it is faster on
+  twitter (1.2x) and citm_catalog (1.5x); RapidJSON prints canada faster, because
+  cJSON's number format, kept here byte for byte, can take three conversions per number.
+- **Level 3's tree is 42 to 57% smaller than RapidJSON's**, and levels 2 and 3 have the
+  lowest peak memory on every file.
+- `Link8` saves 8 to 34% over `OptRef` and costs 2 to 11% of the parse time (9 to 17%
+  with the fast code; building bottom-up looks at each key twice).
+- The fast builds' peak memory is about 0.4 MB higher: the code for `from_chars` and
+  `to_chars`, linked in statically. Their trees are the same size.
 
 ### Other allocators, on bintrees (depth 19)
 
