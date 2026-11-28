@@ -8,3 +8,4 @@ bench/results/
 compile_commands.json
 __pycache__/
 bin/
+bench/json/data/

@@ -83,6 +83,21 @@ inline bool commit(void* p, std::size_t bytes) {
 #endif
 }
 
+// Huge pages (2 MB, Linux): far fewer page-table lookups when walking big data, often
+// 10-40% faster on data of hundreds of MB. A stack asks for them from huge_from up,
+// unless TOPSTACK_NO_HUGE_PAGES is defined, and opts out below that and in its relay
+// tables, as Goose's runtime does, so a small stack never takes a whole 2 MB page even
+// where the system gives huge pages to everything. Elsewhere these do nothing.
+inline constexpr std::size_t huge_from = std::size_t(2) << 20;
+
+inline void advise_huge(void* p, std::size_t bytes, bool on) {
+#if defined(__linux__) && defined(MADV_HUGEPAGE) && defined(MADV_NOHUGEPAGE)
+    madvise(p, bytes, on ? MADV_HUGEPAGE : MADV_NOHUGEPAGE);
+#else
+    (void)p; (void)bytes; (void)on;
+#endif
+}
+
 // Return physical pages to the OS and make the range inaccessible again.
 inline void decommit(void* p, std::size_t bytes) {
 #if defined(_WIN32)
@@ -127,7 +142,6 @@ namespace relay {
     inline void*& owner(std::uintptr_t block) {
         return *reinterpret_cast<void**>(block + owner_at);
     }
-
     inline std::uint32_t* counts(std::uintptr_t block) {
         return reinterpret_cast<std::uint32_t*>(block + counts_at);
     }
@@ -206,6 +220,7 @@ struct MakeResult {
 }
 
 template <class T, bool Nullable> class BasicLink8;
+
 class Stack {
     template <class T> friend class GrowBuf;
     template <class T, bool Nullable> friend class BasicLink8;
@@ -378,6 +393,12 @@ CreateResult Stack::create(std::size_t size, std::size_t step) {
         os::release_block(base_address);
         return {nullptr, CreateError::ReserveFailed};
     }
+    os::advise_huge(base_address, os::block_size, false);
+#ifndef TOPSTACK_NO_HUGE_PAGES
+    if (size > os::huge_from) {
+        os::advise_huge(base_address + os::huge_from, size - os::huge_from, true);
+    }
+#endif
     std::unique_ptr<Stack> stack(new Stack(base_address, size, step));
     relay::owner(reinterpret_cast<std::uintptr_t>(base_address)) = stack.get();
     return {std::move(stack), CreateError::Ok};

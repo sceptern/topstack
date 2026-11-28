@@ -12,7 +12,10 @@ GOOSE=${GOOSE:-$HOME/programming/goose/build/goose}
 GB=${GB:-$HOME/programming/goose/bench}
 B=bin/suite
 mkdir -p $B/rs
-F="-std=c++20 -O2 -DNDEBUG -static-libstdc++ -static-libgcc"
+# topstack is built with huge pages off (TOPSTACK_NO_HUGE_PAGES), like every other
+# program here, so the tables compare like with like; compare_hugepages.sh measures
+# what huge pages add.
+F="-std=c++20 -O2 -DNDEBUG -static-libstdc++ -static-libgcc -DTOPSTACK_NO_HUGE_PAGES"
 RS="-O -C codegen-units=1"
 ONLY=${1:-}
 

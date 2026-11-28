@@ -12,7 +12,10 @@ GB=${GB:-$HOME/programming/goose/bench}
 D=19; N=64000000
 mkdir -p bin/cmp
 B=bin/cmp
-F="-std=c++20 -O2 -DNDEBUG -static-libstdc++ -static-libgcc"
+# topstack is built with huge pages off (TOPSTACK_NO_HUGE_PAGES), like every other
+# program here, so the tables compare like with like; compare_hugepages.sh measures
+# what huge pages add.
+F="-std=c++20 -O2 -DNDEBUG -static-libstdc++ -static-libgcc -DTOPSTACK_NO_HUGE_PAGES"
 
 sed "s/^let MAXDEPTH = [0-9]*;/let MAXDEPTH = $D;/" bintrees.goose > $B/bintrees.goose
 sed "s/^let N = [0-9]*;/let N = $N;/" push.goose > $B/push.goose

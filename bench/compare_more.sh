@@ -12,7 +12,10 @@ GB=${GB:-$HOME/programming/goose/bench}
 TD=${TD:-24}; ID=${ID:-24}; SN=${SN:-300000}
 B=bin/more
 mkdir -p $B
-F="-std=c++20 -O2 -DNDEBUG -static-libstdc++ -static-libgcc"
+# topstack is built with huge pages off (TOPSTACK_NO_HUGE_PAGES), like every other
+# program here, so the tables compare like with like; compare_hugepages.sh measures
+# what huge pages add.
+F="-std=c++20 -O2 -DNDEBUG -static-libstdc++ -static-libgcc -DTOPSTACK_NO_HUGE_PAGES"
 
 for f in tree interp sexp rng; do cp "$GB/goose/$f.goose" $B/; done
 for f in tree interp sexp; do cp "$GB/cpp/$f.cpp" .; done

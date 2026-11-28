@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <new>
 #include <stdexcept>
 #include <string>
@@ -84,6 +85,30 @@ static_assert(!CanMakeArray<std::string>);
 static bool is_aligned(const void* p, std::size_t align) {
     return reinterpret_cast<std::uintptr_t>(p) % align == 0;
 }
+
+#if defined(__linux__)
+// The VmFlags line of the mapping that holds p: "hg" means it asked for huge pages,
+// "nh" that it opted out. Empty if p isn't mapped.
+static std::string vm_flags(const void* p) {
+    std::ifstream f("/proc/self/smaps");
+    std::string line;
+    std::uintptr_t a = reinterpret_cast<std::uintptr_t>(p);
+    bool inside = false;
+    while (std::getline(f, line)) {
+        unsigned long lo, hi;
+        char dash;
+        if (std::sscanf(line.c_str(), "%lx%c%lx", &lo, &dash, &hi) == 3 && dash == '-') {
+            inside = a >= lo && a < hi;
+        } else if (inside && line.rfind("VmFlags:", 0) == 0) {
+            return line + " ";
+        }
+    }
+    return "";
+}
+static bool has_flag(const std::string& flags, const char* f) {
+    return flags.find(std::string(" ") + f + " ") != std::string::npos;
+}
+#endif
 
 int main() {
     std::setvbuf(stdout, nullptr, _IONBF, 0);   // unbuffered: output survives a crash
@@ -481,6 +506,23 @@ int main() {
         CHECK(none != nullptr);
         CHECK(s->used() == 0);
     }
+
+#if defined(__linux__)
+    // Huge pages: a stack asks for them from 2 MB up and opts out below that and in its
+    // relay tables, so small stacks stay small. (Checked only where the kernel has them.)
+    if (std::ifstream("/sys/kernel/mm/transparent_hugepage/enabled")) {
+        auto [big, e1] = Stack::create(std::size_t(1) << 30);
+        char* b = static_cast<char*>(big->alloc(0, 1));
+        CHECK(has_flag(vm_flags(b), "nh"));                                   // first 2 MB
+        CHECK(has_flag(vm_flags(b + (std::size_t(4) << 30)), "nh"));        // relay tables
+  #ifndef TOPSTACK_NO_HUGE_PAGES
+        CHECK(has_flag(vm_flags(b + (std::size_t(4) << 20)), "hg"));        // beyond 2 MB
+  #endif
+        auto [small, e2] = Stack::create(std::size_t(1) << 20);
+        char* sb = static_cast<char*>(small->alloc(0, 1));
+        CHECK(has_flag(vm_flags(sb), "nh") && !has_flag(vm_flags(sb), "hg"));
+    }
+#endif
 
     std::printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
     return failures ? 1 : 0;

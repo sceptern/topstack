@@ -1,0 +1,274 @@
+topstack comparison, Fri Nov 27 19:33:39 MST 2026
+machine: Linux 6.6.87.2-microsoft-standard-WSL2, 16 cores
+compilers: g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; Ubuntu clang version 18.1.3 (1ubuntu1)
+scripts: hugepages json
+
+
+#### system huge-page setting: madvise (defrag: madvise)
+
+== tree (all outputs match Goose)
+./bin/more/tree_goose        1251.3 ms    385.5 MB
+./bin/more/tree_goose_clang   1223.1 ms    386.0 MB
+./bin/more/tree_cpp2-gcc     1189.3 ms    385.5 MB
+./bin/huge/tree_cpp2-gcc_huge    975.3 ms    385.6 MB
+./bin/more/tree_cpp2-clang   1243.3 ms    385.9 MB
+./bin/huge/tree_cpp2-clang_huge    899.0 ms    387.7 MB
+./bin/huge/tree_ts-clang      786.0 ms    259.0 MB
+./bin/huge/tree_ts-gcc        730.4 ms    258.7 MB
+./bin/huge/tree_ts_nohuge-clang   1008.5 ms    259.0 MB
+./bin/huge/tree_ts_nohuge-gcc    879.5 ms    258.8 MB
+
+== sexp (all outputs match Goose)
+./bin/more/sexp_goose        1922.4 ms    370.0 MB
+./bin/more/sexp_goose_clang   1887.4 ms    370.4 MB
+./bin/more/sexp_cpp1-gcc     3787.4 ms    954.4 MB
+./bin/huge/sexp_cpp1-gcc_huge   2445.7 ms    957.0 MB
+./bin/more/sexp_cpp1-clang   3343.5 ms    954.7 MB
+./bin/huge/sexp_cpp1-clang_huge   1899.3 ms    957.1 MB
+./bin/huge/sexp_ts-clang     1448.5 ms    382.0 MB
+./bin/huge/sexp_ts-gcc       1555.0 ms    381.7 MB
+./bin/huge/sexp_ts_nohuge-clang   1813.0 ms    378.9 MB
+./bin/huge/sexp_ts_nohuge-gcc   1870.6 ms    378.5 MB
+
+== records (all outputs match Goose)
+./bin/suite/records_goose-records_var    554.2 ms    142.8 MB
+./bin/suite/records_goose-records_var-clang    666.1 ms    143.1 MB
+./bin/suite/records_cpp2-gcc   1361.2 ms    385.4 MB
+./bin/huge/records_cpp2-gcc_huge    809.7 ms    387.9 MB
+./bin/suite/records_cpp2-clang   1211.1 ms    385.6 MB
+./bin/huge/records_cpp2-clang_huge    704.2 ms    388.1 MB
+./bin/huge/records_ts-clang    475.2 ms    143.9 MB
+./bin/huge/records_ts-gcc     548.2 ms    143.5 MB
+./bin/huge/records_ts_nohuge-clang    605.7 ms    143.0 MB
+./bin/huge/records_ts_nohuge-gcc    644.2 ms    142.6 MB
+
+== graph (all outputs match Goose)
+./bin/suite/graph_goose-graph   5936.7 ms    154.1 MB
+./bin/suite/graph_goose-graph-clang   5385.8 ms    154.5 MB
+./bin/suite/graph_cpp2-gcc   5793.4 ms    154.1 MB
+./bin/huge/graph_cpp2-gcc_huge   5265.1 ms    154.0 MB
+./bin/suite/graph_cpp2-clang   5132.0 ms    154.4 MB
+./bin/huge/graph_cpp2-clang_huge   4684.4 ms    154.4 MB
+./bin/huge/graph_ts-clang    5438.1 ms    155.9 MB
+./bin/huge/graph_ts-gcc      5047.9 ms    155.5 MB
+./bin/huge/graph_ts_nohuge-clang   6042.8 ms    154.4 MB
+./bin/huge/graph_ts_nohuge-gcc   5678.4 ms    154.0 MB
+
+== words (all outputs match Goose)
+./bin/suite/words_goose-words   2057.6 ms    529.2 MB
+./bin/suite/words_goose-words-clang   2022.4 ms    529.5 MB
+./bin/suite/words_cpp2-gcc   3244.7 ms    663.5 MB
+./bin/huge/words_cpp2-gcc_huge   2314.4 ms    666.4 MB
+./bin/suite/words_cpp2-clang   3346.8 ms    663.8 MB
+./bin/huge/words_cpp2-clang_huge   2333.7 ms    666.6 MB
+./bin/huge/words_ts-clang    1929.5 ms    455.9 MB
+./bin/huge/words_ts-gcc      2560.7 ms    455.5 MB
+./bin/huge/words_ts_nohuge-clang   2235.1 ms    451.9 MB
+./bin/huge/words_ts_nohuge-gcc   2899.2 ms    451.4 MB
+
+== lru (all outputs match Goose)
+./bin/suite/lru_goose-lru    3304.1 ms    126.6 MB
+./bin/suite/lru_goose-lru-clang   3184.6 ms    127.0 MB
+./bin/suite/lru_cpp1-gcc     3650.7 ms    129.4 MB
+./bin/huge/lru_cpp1-gcc_huge   3237.5 ms    131.4 MB
+./bin/suite/lru_cpp1-clang   3365.3 ms    129.6 MB
+./bin/huge/lru_cpp1-clang_huge   2962.9 ms    131.7 MB
+./bin/huge/lru_ts-clang      3033.3 ms    127.9 MB
+./bin/huge/lru_ts-gcc        3272.0 ms    127.5 MB
+./bin/huge/lru_ts_nohuge-clang   3394.4 ms    126.9 MB
+./bin/huge/lru_ts_nohuge-gcc   3662.8 ms    126.5 MB
+
+== scene (all outputs match Goose)
+./bin/suite/scene_goose-scene    945.5 ms    179.5 MB
+./bin/suite/scene_goose-scene-clang    779.1 ms    179.5 MB
+./bin/suite/scene_cpp1-gcc   1270.3 ms    241.4 MB
+./bin/huge/scene_cpp1-gcc_huge   1003.3 ms    243.4 MB
+./bin/suite/scene_cpp1-clang    993.0 ms    241.7 MB
+./bin/huge/scene_cpp1-clang_huge    701.7 ms    243.7 MB
+./bin/huge/scene_ts-clang     631.2 ms    185.9 MB
+./bin/huge/scene_ts-gcc       916.3 ms    185.5 MB
+./bin/huge/scene_ts_nohuge-clang    792.4 ms    184.0 MB
+./bin/huge/scene_ts_nohuge-gcc   1034.8 ms    183.5 MB
+
+#### system huge-page setting: always (defrag: madvise)
+
+== tree (all outputs match Goose)
+./bin/more/tree_goose        1064.8 ms    387.6 MB
+./bin/more/tree_goose_clang    987.5 ms    388.0 MB
+./bin/more/tree_cpp2-gcc      980.4 ms    385.6 MB
+./bin/huge/tree_cpp2-gcc_huge    977.0 ms    385.6 MB
+./bin/more/tree_cpp2-clang    993.1 ms    385.9 MB
+./bin/huge/tree_cpp2-clang_huge    998.8 ms    385.9 MB
+./bin/huge/tree_ts-clang      803.7 ms    259.0 MB
+./bin/huge/tree_ts-gcc        757.2 ms    258.7 MB
+./bin/huge/tree_ts_nohuge-clang   1053.1 ms    259.0 MB
+./bin/huge/tree_ts_nohuge-gcc    932.1 ms    258.8 MB
+
+== sexp (all outputs match Goose)
+./bin/more/sexp_goose        1834.6 ms    372.9 MB
+./bin/more/sexp_goose_clang   1752.4 ms    373.3 MB
+./bin/more/sexp_cpp1-gcc     2738.0 ms    957.4 MB
+./bin/huge/sexp_cpp1-gcc_huge   2428.6 ms    957.6 MB
+./bin/more/sexp_cpp1-clang   2001.9 ms    957.7 MB
+./bin/huge/sexp_cpp1-clang_huge   2135.6 ms    957.9 MB
+./bin/huge/sexp_ts-clang     1574.7 ms    382.0 MB
+./bin/huge/sexp_ts-gcc       1744.5 ms    381.7 MB
+./bin/huge/sexp_ts_nohuge-clang   1955.2 ms    378.9 MB
+./bin/huge/sexp_ts_nohuge-gcc   1950.7 ms    378.5 MB
+
+== records (all outputs match Goose)
+./bin/suite/records_goose-records_var    486.5 ms    144.6 MB
+./bin/suite/records_goose-records_var-clang    579.1 ms    145.0 MB
+./bin/suite/records_cpp2-gcc    841.8 ms    387.2 MB
+./bin/huge/records_cpp2-gcc_huge    743.7 ms    386.8 MB
+./bin/suite/records_cpp2-clang    709.0 ms    387.5 MB
+./bin/huge/records_cpp2-clang_huge    713.7 ms    387.6 MB
+./bin/huge/records_ts-clang    489.5 ms    143.9 MB
+./bin/huge/records_ts-gcc     561.3 ms    143.5 MB
+./bin/huge/records_ts_nohuge-clang    630.2 ms    143.0 MB
+./bin/huge/records_ts_nohuge-gcc    672.5 ms    142.6 MB
+
+== graph (all outputs match Goose)
+./bin/suite/graph_goose-graph   5376.7 ms    156.6 MB
+./bin/suite/graph_goose-graph-clang   4856.6 ms    157.0 MB
+./bin/suite/graph_cpp2-gcc   5106.9 ms    154.2 MB
+./bin/huge/graph_cpp2-gcc_huge   5118.4 ms    154.2 MB
+./bin/suite/graph_cpp2-clang   4540.9 ms    154.4 MB
+./bin/huge/graph_cpp2-clang_huge   4567.4 ms    154.4 MB
+./bin/huge/graph_ts-clang    5345.1 ms    155.9 MB
+./bin/huge/graph_ts-gcc      5071.4 ms    155.5 MB
+./bin/huge/graph_ts_nohuge-clang   6040.3 ms    154.4 MB
+./bin/huge/graph_ts_nohuge-gcc   5628.4 ms    154.0 MB
+
+== words (all outputs match Goose)
+./bin/suite/words_goose-words   1725.7 ms    533.6 MB
+./bin/suite/words_goose-words-clang   1733.4 ms    534.0 MB
+./bin/suite/words_cpp2-gcc   2537.0 ms    665.2 MB
+./bin/huge/words_cpp2-gcc_huge   2413.4 ms    666.3 MB
+./bin/suite/words_cpp2-clang   2286.6 ms    666.5 MB
+./bin/huge/words_cpp2-clang_huge   2283.3 ms    666.5 MB
+./bin/huge/words_ts-clang    2054.0 ms    455.9 MB
+./bin/huge/words_ts-gcc      2935.5 ms    455.5 MB
+./bin/huge/words_ts_nohuge-clang   2350.4 ms    451.9 MB
+./bin/huge/words_ts_nohuge-gcc   3074.9 ms    451.4 MB
+
+== lru (all outputs match Goose)
+./bin/suite/lru_goose-lru    2989.7 ms    129.6 MB
+./bin/suite/lru_goose-lru-clang   2831.1 ms    130.0 MB
+./bin/suite/lru_cpp1-gcc     3283.8 ms    131.3 MB
+./bin/huge/lru_cpp1-gcc_huge   3223.1 ms    131.4 MB
+./bin/suite/lru_cpp1-clang   2885.6 ms    131.5 MB
+./bin/huge/lru_cpp1-clang_huge   2942.0 ms    131.5 MB
+./bin/huge/lru_ts-clang      3020.1 ms    127.9 MB
+./bin/huge/lru_ts-gcc        3275.3 ms    127.5 MB
+./bin/huge/lru_ts_nohuge-clang   3356.9 ms    126.9 MB
+./bin/huge/lru_ts_nohuge-gcc   3551.5 ms    126.5 MB
+
+== scene (all outputs match Goose)
+./bin/suite/scene_goose-scene    814.9 ms    180.0 MB
+./bin/suite/scene_goose-scene-clang    675.0 ms    180.0 MB
+./bin/suite/scene_cpp1-gcc    952.8 ms    243.2 MB
+./bin/huge/scene_cpp1-gcc_huge    929.6 ms    243.3 MB
+./bin/suite/scene_cpp1-clang    679.1 ms    243.2 MB
+./bin/huge/scene_cpp1-clang_huge    681.5 ms    243.3 MB
+./bin/huge/scene_ts-clang     616.2 ms    185.9 MB
+./bin/huge/scene_ts-gcc       901.6 ms    185.5 MB
+./bin/huge/scene_ts_nohuge-clang    800.0 ms    184.0 MB
+./bin/huge/scene_ts_nohuge-gcc   1024.1 ms    183.5 MB
+
+
+== twitter, 200 rounds of parse + walk + print (all outputs match)
+./bin/json/cjson-gcc          718.1 ms      4.7 MB
+./bin/json/cjson_hooks-gcc    504.8 ms      5.0 MB
+./bin/json/cjson_link8-gcc    387.8 ms      3.1 MB
+./bin/json/cjson_ts-gcc       367.0 ms      3.2 MB
+./bin/json/rapidjson-gcc      560.3 ms      4.0 MB
+./bin/json/rapidjson_fast-gcc    298.3 ms      3.6 MB
+./bin/json/rapidjson_insitu-gcc    304.5 ms      3.6 MB
+./bin/json/cjson-clang        708.5 ms      5.1 MB
+./bin/json/cjson_hooks-clang    505.9 ms      5.4 MB
+./bin/json/cjson_link8-clang    428.7 ms      3.4 MB
+./bin/json/cjson_ts-clang     353.2 ms      3.5 MB
+./bin/json/rapidjson-clang    553.3 ms      4.2 MB
+./bin/json/rapidjson_fast-clang    384.6 ms      3.9 MB
+./bin/json/rapidjson_insitu-clang    388.2 ms      3.9 MB
+
+== twitter, 200 rounds of parse + walk (all outputs match)
+./bin/json/cjson_hooks_parse-gcc    247.2 ms      3.5 MB
+./bin/json/cjson_link8_parse-gcc    162.8 ms      2.6 MB
+./bin/json/cjson_parse-gcc    352.7 ms      3.9 MB
+./bin/json/cjson_ts_parse-gcc    157.5 ms      2.6 MB
+./bin/json/rapidjson_fast_parse-gcc    189.2 ms      3.2 MB
+./bin/json/rapidjson_insitu_parse-gcc    181.6 ms      3.1 MB
+./bin/json/rapidjson_parse-gcc    362.0 ms      3.5 MB
+./bin/json/cjson_hooks_parse-clang    249.2 ms      3.8 MB
+./bin/json/cjson_link8_parse-clang    181.1 ms      2.9 MB
+./bin/json/cjson_parse-clang    366.5 ms      4.2 MB
+./bin/json/cjson_ts_parse-clang    173.8 ms      2.9 MB
+./bin/json/rapidjson_fast_parse-clang    277.4 ms      3.4 MB
+./bin/json/rapidjson_insitu_parse-clang    268.9 ms      3.4 MB
+./bin/json/rapidjson_parse-clang    364.4 ms      3.7 MB
+
+== citm_catalog, 100 rounds of parse + walk + print (all outputs match)
+./bin/json/cjson-gcc          651.6 ms      7.6 MB
+./bin/json/cjson_hooks-gcc    489.7 ms      7.4 MB
+./bin/json/cjson_link8-gcc    386.8 ms      4.2 MB
+./bin/json/cjson_ts-gcc       352.6 ms      4.4 MB
+./bin/json/rapidjson-gcc      350.1 ms      6.4 MB
+./bin/json/rapidjson_fast-gcc    268.1 ms      6.3 MB
+./bin/json/rapidjson_insitu-gcc    273.7 ms      6.3 MB
+./bin/json/cjson-clang        661.2 ms      8.1 MB
+./bin/json/cjson_hooks-clang    490.3 ms      7.9 MB
+./bin/json/cjson_link8-clang    351.3 ms      4.5 MB
+./bin/json/cjson_ts-clang     328.2 ms      4.8 MB
+./bin/json/rapidjson-clang    343.1 ms      6.6 MB
+./bin/json/rapidjson_fast-clang    308.6 ms      6.6 MB
+./bin/json/rapidjson_insitu-clang    320.4 ms      6.6 MB
+
+== citm_catalog, 100 rounds of parse + walk (all outputs match)
+./bin/json/cjson_hooks_parse-gcc    301.2 ms      6.0 MB
+./bin/json/cjson_link8_parse-gcc    196.9 ms      3.6 MB
+./bin/json/cjson_parse-gcc    389.0 ms      6.9 MB
+./bin/json/cjson_ts_parse-gcc    189.8 ms      3.9 MB
+./bin/json/rapidjson_fast_parse-gcc    206.4 ms      5.8 MB
+./bin/json/rapidjson_insitu_parse-gcc    217.8 ms      5.8 MB
+./bin/json/rapidjson_parse-gcc    311.0 ms      5.8 MB
+./bin/json/cjson_hooks_parse-clang    286.5 ms      6.2 MB
+./bin/json/cjson_link8_parse-clang    203.8 ms      3.9 MB
+./bin/json/cjson_parse-clang    406.0 ms      7.1 MB
+./bin/json/cjson_ts_parse-clang    184.3 ms      4.1 MB
+./bin/json/rapidjson_fast_parse-clang    251.6 ms      6.1 MB
+./bin/json/rapidjson_insitu_parse-clang    259.5 ms      6.0 MB
+./bin/json/rapidjson_parse-clang    300.8 ms      6.1 MB
+
+== canada, 10 rounds of parse + walk + print (all outputs match)
+./bin/json/cjson-gcc         1001.5 ms     19.4 MB
+./bin/json/cjson_hooks-gcc    915.4 ms     19.8 MB
+./bin/json/cjson_link8-gcc    876.0 ms      7.1 MB
+./bin/json/cjson_ts-gcc       843.7 ms      7.5 MB
+./bin/json/rapidjson-gcc      202.1 ms     11.1 MB
+./bin/json/rapidjson_fast-gcc    148.5 ms     11.0 MB
+./bin/json/rapidjson_insitu-gcc    198.8 ms     11.1 MB
+./bin/json/cjson-clang       1022.8 ms     19.8 MB
+./bin/json/cjson_hooks-clang    918.2 ms     20.1 MB
+./bin/json/cjson_link8-clang    849.6 ms      7.4 MB
+./bin/json/cjson_ts-clang     831.3 ms      7.9 MB
+./bin/json/rapidjson-clang    206.5 ms     11.3 MB
+./bin/json/rapidjson_fast-clang    153.3 ms     11.2 MB
+./bin/json/rapidjson_insitu-clang    204.3 ms     11.3 MB
+
+== canada, 10 rounds of parse + walk (all outputs match)
+./bin/json/cjson_hooks_parse-gcc    192.8 ms     13.9 MB
+./bin/json/cjson_link8_parse-gcc    152.0 ms      4.9 MB
+./bin/json/cjson_parse-gcc    244.6 ms     16.5 MB
+./bin/json/cjson_ts_parse-gcc    150.2 ms      5.6 MB
+./bin/json/rapidjson_fast_parse-gcc     69.7 ms      8.7 MB
+./bin/json/rapidjson_insitu_parse-gcc    114.4 ms      8.7 MB
+./bin/json/rapidjson_parse-gcc    124.2 ms      8.7 MB
+./bin/json/cjson_hooks_parse-clang    199.4 ms     14.1 MB
+./bin/json/cjson_link8_parse-clang    140.1 ms      5.2 MB
+./bin/json/cjson_parse-clang    269.4 ms     16.8 MB
+./bin/json/cjson_ts_parse-clang    141.8 ms      5.9 MB
+./bin/json/rapidjson_fast_parse-clang     73.7 ms      8.9 MB
+./bin/json/rapidjson_insitu_parse-clang    121.3 ms      8.9 MB
+./bin/json/rapidjson_parse-clang    131.1 ms      8.9 MB

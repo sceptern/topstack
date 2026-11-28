@@ -34,6 +34,14 @@ bench/LICENSE-goose):
 The comparison scripts also copy further Goose sources into bench/bin/ at run
 time; those copies are not part of this repository.
 
+bench/json/ was written for topstack: benchmarks of cJSON
+(https://github.com/DaveGamble/cJSON, MIT License). common.h, topstack.cpp and
+link8.cpp follow cJSON's parse_number, parse_string, print_number and
+print_string_ptr, so their output is the same as cJSON's. rapidjson.cpp uses
+RapidJSON (MIT License). Neither library is included: compare_json.sh downloads
+cJSON 1.7.19 and the JSON test files into bench/json/data/ at run time, and
+RapidJSON comes from the system.
+
 bench/llvm_shim.cpp was written for topstack, not copied from LLVM. It behaves like
 LLVM's allocate_buffer, deallocate_buffer and SmallVectorBase::grow_pod, so the LLVM
 benchmark can run without loading libLLVM.

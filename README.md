@@ -346,8 +346,9 @@ the comparison fair:
   For topstack it includes all link widths. For C++, Goose's "expert" versions; for
   Rust, all of Goose's Rust versions.
 - **Speed compares each side's fastest version; memory each side's smallest.**
-- **Huge pages are off** for everyone (the system default, which only gives them to
-  programs that ask).
+- **Huge pages are off** for everyone, topstack included (it asks for them by default;
+  the benchmark scripts build it with `TOPSTACK_NO_HUGE_PAGES`). What they add is in
+  [Huge pages](#huge-pages) below.
 
 ### Summary
 
@@ -423,6 +424,138 @@ calc and respond use 8.3 to 8.4 MB in every version, blur 130 MB. words' C++ and
 versions hash with FNV-1a, one byte at a time; Goose and topstack use Goose's own hash,
 8 bytes at a time.
 
+### Huge pages
+
+topstack asks the system for huge pages (2 MB instead of 4 KB) for each stack's memory
+beyond its first 2 MB, so big data needs far fewer TLB entries, and turns them off for
+the first 2 MB, so small stacks stay small. `TOPSTACK_NO_HUGE_PAGES` turns this off.
+Goose turns them off for the first 2 MB too, but never asks for them beyond it, and
+glibc's `malloc` only asks when told to (`GLIBC_TUNABLES=glibc.malloc.hugetlb=1`).
+
+What a program gets depends on the system setting
+(`/sys/kernel/mm/transparent_hugepage/enabled`). `bench/compare_hugepages.sh` runs
+everything under both (`bench/results/2026-11-27_1933.txt`); best of GCC and Clang.
+
+**`madvise`** (Ubuntu's default): only programs that ask get huge pages, so Goose runs
+without them. Huge pages off → on:
+
+| Benchmark | topstack | expert C++ (with the tunable) | Goose |
+|---|---|---|---|
+| tree | 880 → **730 ms** (−17%) | 1189 → 899 ms (−24%) | 1223 ms |
+| sexp | 1813 → **1449 ms** (−20%) | 3344 → 1899 ms (−43%) | 1887 ms |
+| records | 606 → **475 ms** (−22%) | 1211 → 704 ms (−42%) | 554 ms |
+| graph | 5678 → 5048 ms (−11%) | 5132 → **4684 ms** (−9%) | 5386 ms |
+| words | 2235 → **1930 ms** (−14%) | 3245 → 2314 ms (−29%) | 2022 ms |
+| lru | 3394 → 3033 ms (−11%) | 3365 → **2963 ms** (−12%) | 3185 ms |
+| scene | 792 → **631 ms** (−20%) | 993 → 702 ms (−29%) | 779 ms |
+
+**`always`**: every program gets huge pages beyond the first 2 MB without asking, Goose
+and plain C++ included, so this is like for like:
+
+| Benchmark | topstack | expert C++ | Goose |
+|---|---|---|---|
+| tree | **757 ms** | 977 ms | 988 ms |
+| sexp | **1575 ms** | 2002 ms | 1752 ms |
+| records | 490 ms | 709 ms | **487 ms** |
+| graph | 5071 ms | **4541 ms** | 4857 ms |
+| words | 2054 ms | 2283 ms | **1726 ms** |
+| lru | 3020 ms | 2886 ms | **2831 ms** |
+| scene | **616 ms** | 679 ms | 675 ms |
+
+- **topstack's default is 11 to 22% faster** on these benchmarks, for 0 to 1.1% more
+  memory (each stack's last huge page is backed in full), with nothing to set.
+- **Under `madvise`, topstack is the fastest on five of the seven;** C++ with the
+  tunable wins graph and lru. Part of that lead is that Goose doesn't ask.
+- **With huge pages for everyone (`always`), topstack is the fastest on three** (tree,
+  sexp, scene), even with Goose on records (0.6%), and behind on three: Goose wins
+  words (by 19%) and lru (7%), C++ wins graph (12%). Goose gains 7 to 19% from huge
+  pages, C++ 9 to 43% (`malloc` spreads small objects over more memory, so it misses
+  the TLB more often to begin with).
+- The main tables keep huge pages off for everyone. (With `defrag` at `madvise`, as
+  here, a program that doesn't ask only gets huge pages when they're free at once; one
+  that asks may wait for the system to make them.)
+
+### A real library: cJSON
+
+[cJSON](https://github.com/DaveGamble/cJSON) ported three ways, on the three files of
+the nativejson-benchmark (`bench/compare_json.sh`), against cJSON itself and
+[RapidJSON](https://rapidjson.org/) 1.1.0:
+
+- **Level 1, allocator hooks** (`bench/json/cjson.cpp -DHOOKS=1`): cJSON's own
+  `cJSON.c`, unchanged, given a topstack stack through `cJSON_InitHooks`. `free` only
+  takes back the newest allocation, and a `Scope` frees each document without
+  `cJSON_Delete`.
+- **Level 2, topstack layout** (`bench/json/topstack.cpp`): cJSON's parser and printer,
+  same algorithm and the same output byte for byte, with a 5-byte header per value
+  (`OptRef` links), keys and strings inline, no padding. cJSON's node is 64 bytes plus
+  a `malloc` per string.
+- **Level 3, `Link8`** (`bench/json/link8.cpp`): level 2 with 1-byte links, built
+  bottom-up; parse-only (the tree can be read and printed, not edited).
+- RapidJSON: `Parse`, `ParseInsitu`, and its default number mode, which is faster but
+  reads 13% of canada's numbers one or two steps off the nearest double (a 64-bit
+  integer times a power of ten, rounded twice). Every other version reads numbers
+  exactly; the script checks that all of them agree.
+
+From `bench/results/2026-11-27_1933.txt`; best of GCC and Clang; 200, 100 and 10
+rounds. **Parse and walk**, time and peak memory (the peak includes the input text and
+about 1.2 MB for the program itself):
+
+| | twitter (632 KB) | citm_catalog (1.7 MB) | canada (2.3 MB) |
+|---|---|---|---|
+| cJSON | 353 ms, 3.9 MB | 389 ms, 6.9 MB | 245 ms, 16.5 MB |
+| **level 1** (hooks) | 247 ms, 3.5 MB | 287 ms, 6.0 MB | 193 ms, 13.9 MB |
+| **level 2** (`OptRef`) | **158 ms**, **2.6 MB** | **184 ms**, 3.9 MB | 142 ms, 5.6 MB |
+| **level 3** (`Link8`) | 163 ms, **2.6 MB** | 197 ms, **3.6 MB** | 140 ms, **4.9 MB** |
+| RapidJSON `Parse` | 362 ms, 3.5 MB | 301 ms, 5.8 MB | 124 ms, 8.7 MB |
+| RapidJSON `ParseInsitu` | 182 ms, 3.1 MB | 218 ms, 5.8 MB | 114 ms, 8.7 MB |
+| RapidJSON, inexact numbers | 189 ms, 3.2 MB | 206 ms, 5.8 MB | **70 ms**, 8.7 MB |
+
+**The tree itself**, the bytes one parsed document uses (the same on any machine):
+
+| | twitter | citm_catalog | canada |
+|---|---|---|---|
+| cJSON | 1.87 MB | 3.88 MB | 13.4 MB |
+| level 1 | 1.38 MB | 2.86 MB | 10.7 MB |
+| level 2 | 0.48 MB | 0.64 MB | 1.95 MB |
+| **level 3** | **0.44 MB** | **0.47 MB** | **1.28 MB** |
+| RapidJSON `Parse` | 0.76 MB | 1.09 MB | 2.68 MB |
+| RapidJSON `ParseInsitu` | 0.44 MB + input | 1.02 MB + input | 2.68 MB + input |
+
+(In situ, the strings stay in the input text, which has to be kept as long as the tree.)
+
+**Parse, walk and print:**
+
+| | twitter | citm_catalog | canada |
+|---|---|---|---|
+| cJSON | 709 ms | 652 ms | 1002 ms |
+| level 1 | 505 ms | 490 ms | 915 ms |
+| level 2 | 353 ms | 328 ms | 831 ms |
+| level 3 | 388 ms | 351 ms | 850 ms |
+| RapidJSON, best exact | 305 ms | 274 ms | 199 ms |
+| RapidJSON, inexact numbers | **298 ms** | **268 ms** | **149 ms** |
+
+- **Hooks alone make cJSON 1.3 to 1.4x faster**, with no change to cJSON: allocation
+  becomes a bump and freeing a document a single step. The tree also shrinks by 20 to
+  26% (no `malloc` headers). Printing uses a bit more memory than with `malloc`, because
+  cJSON grows its print buffer by copying it and a stack can't take back the old copies.
+- **The topstack layout makes it 1.7 to 2.2x faster and 4 to 7x smaller** than cJSON,
+  with the same parsing code: the gain is the memory layout alone.
+- **Against RapidJSON**, level 2 parses faster than every RapidJSON mode on twitter
+  (1.15x its in-situ parse, 2.3x its `Parse`) and citm_catalog (1.1x to 1.6x); on canada,
+  which is almost all numbers, RapidJSON is faster: cJSON reads each number with glibc's
+  `strtod` on a copy. Level 3's tree is 42 to 57% smaller than RapidJSON's `Parse`, and
+  levels 2 and 3 have the lowest peak memory on every file.
+- **Printing** is where cJSON's code costs most: each number is printed with `sprintf`,
+  read back with `sscanf` to check it, and sometimes printed again, so RapidJSON prints
+  faster on all three files, 4 to 5.6x on canada.
+- `Link8` saves 8 to 34% over `OptRef` and costs up to 7% of the parse time (on
+  canada it's even; building bottom-up looks at each key twice).
+- **Fast builds** (`-DFAST=1`, rows `cjson_ts_fast` and `cjson_link8_fast`): levels 2 and
+  3 with faster parsing code and the same output: `std::from_chars` and `std::to_chars`
+  for numbers instead of `strtod`, `sprintf` and `sscanf`, and 8 bytes at a time when
+  scanning strings and whitespace. This code isn't topstack's; it would speed up cJSON
+  too. Their numbers will be added from the next run on this machine.
+
 ### Other allocators, on bintrees (depth 19)
 
 Same run and same section as the tables above (Goose: 271 ms):
@@ -483,16 +616,20 @@ From `bench/`, with Goose built at `~/programming/goose/build/goose` (or set `GO
 ./report.sh
 ```
 
-runs everything (a little over an hour) and saves the output in `bench/results/`. The
-individual scripts are `compare.sh` (bintrees, push, std::pmr, Goose's C++ and Rust),
+runs everything (about an hour and a half) and saves the output in `bench/results/`;
+`./report.sh hugepages json` runs just those two scripts, and so on. The individual
+scripts are `compare.sh` (bintrees, push, std::pmr, Goose's C++ and Rust),
 `compare_extra.sh` (LLVM's allocator and `pinned_vector`), `compare_malloc.sh`
 (mimalloc, jemalloc, tcmalloc), `compare_more.sh` (tree, interp, sexp),
 `compare_bumpalo.sh` (Rust's bumpalo), `compare_suite.sh` (the other 11 benchmarks;
-`./compare_suite.sh records` runs one) and `compare_protobuf.sh` (protobuf's Arena).
+`./compare_suite.sh records` runs one), `compare_protobuf.sh` (protobuf's Arena),
+`compare_hugepages.sh` (huge pages on and off, under both system settings; it asks for
+sudo to switch the setting and puts it back) and `compare_json.sh` (cJSON and RapidJSON;
+it downloads cJSON and its three JSON files).
 Requirements beyond GCC and Clang:
 
 ```sh
-sudo apt install llvm-18-dev libmimalloc2.0 libjemalloc2 libtcmalloc-minimal4t64 libprotobuf-dev
+sudo apt install llvm-18-dev libmimalloc2.0 libjemalloc2 libtcmalloc-minimal4t64 libprotobuf-dev rapidjson-dev
 git clone https://github.com/mknejp/vmcontainer.git ~/programming/vmcontainer
 curl --proto '=https' -sSf https://sh.rustup.rs | sh        # for the Rust rows
 ```
@@ -566,15 +703,14 @@ and the C++ versions with both GCC and Clang, and Goose's tree benchmarks also w
   passes the stack's top through calls in registers, as Goose does.
 - **Safety:** tell AddressSanitizer about rewinds, so use after a `Scope` is caught
   like use after `free`.
-- **Speed:** huge pages for big stacks (up to 24% faster on large data in a first
-  test); find why topstack's blur is slower than the same loop in C++ on some machines;
+- **Speed:** find why topstack's blur is slower than the same loop in C++ on some machines;
   ports of the designs Goose is faster with (a CSR graph, a streaming respond).
 - **Library:** a typed writer and reader for packed variable-size records (the closest
   C++ gets to Goose's variable-size enums), `GrowBuf::pop` and `resize`, slot and slice
   pools, `trim()`, and a `std::pmr` adapter so strings and vectors inside nodes can live
   on a stack too.
-- **Real programs:** porting a JSON parser (cJSON) and a small C compiler (chibicc) to
-  topstack, to measure more than benchmarks.
+- **Real programs:** cJSON is ported (see "A real library: cJSON"); next, a small C
+  compiler (chibicc).
 - **Windows** builds and tests.
 
 ## Credits and license
