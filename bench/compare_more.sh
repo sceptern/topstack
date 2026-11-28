@@ -1,7 +1,7 @@
 #!/bin/sh
 # Goose's tree, interp and sexp benchmarks: Goose, its C++ and Rust versions, and
 # topstack: *_ts with Ref<T> links (checks off in release; *_refchk keeps them on),
-# *_ts16 with Ref16<T> (2-byte) links.
+# *_ts16 with Ref16<T> (2-byte) links, *_ts8 with Link8<T> (1-byte) links.
 # Sizes are Goose's "large" ones. Run from the bench folder.
 # C++ programs link the C++ standard library statically (-static-libstdc++), as
 # Rust does with its own: loading libstdc++.so costs every C++ program about
@@ -19,7 +19,16 @@ for f in tree interp sexp; do cp "$GB/cpp/$f.cpp" .; done
 sed -i "s/^let DEPTH = [0-9]*;/let DEPTH = $TD;/" $B/tree.goose
 sed -i "s/^let DEPTH = [0-9]*;/let DEPTH = $ID;/" $B/interp.goose
 sed -i "s/^let N = [0-9]*;/let N = $SN;/" $B/sexp.goose
-for f in tree interp sexp; do "$GOOSE" build $B/$f.goose -o $B/${f}_goose > /dev/null; done
+# Goose with both C compilers (*_goose is gcc, *_goose_clang clang), and with
+# variable-width links (&<varint>, *_goose_varint*), the smallest Goose makes these.
+for f in tree interp sexp; do
+    sed 's/&<u32>/\&<varint>/g' $B/$f.goose > $B/${f}_varint.goose
+    for cc in gcc clang; do
+        s=; [ $cc = clang ] && s=_clang
+        "$GOOSE" build --cc $cc $B/$f.goose -o $B/${f}_goose$s > /dev/null
+        "$GOOSE" build --cc $cc $B/${f}_varint.goose -o $B/${f}_goose_varint$s > /dev/null
+    done
+done
 
 for cxx in g++ clang++; do
     c=${cxx%++}; [ $c = g ] && c=gcc
@@ -30,7 +39,9 @@ for cxx in g++ clang++; do
     $cxx $F -DBENCH_N=$ID -I ../include interp_topstack.cpp -o $B/interp_ts-$c
     $cxx $F -DBENCH_N=$SN -I ../include sexp_topstack.cpp -o $B/sexp_ts-$c
     $cxx $F -DBENCH_N=$TD -I ../include tree_ref16.cpp -o $B/tree_ts16-$c
+    $cxx $F -DBENCH_N=$TD -I ../include tree_link8.cpp -o $B/tree_ts8-$c
     $cxx $F -DBENCH_N=$ID -I ../include interp_ref16.cpp -o $B/interp_ts16-$c
+    $cxx $F -DBENCH_N=$ID -I ../include interp_link8.cpp -o $B/interp_ts8-$c
     $cxx $F -DBENCH_N=$SN -I ../include sexp_ref16.cpp -o $B/sexp_ts16-$c
 done
 g++ $F -DTOPSTACK_CHECKED_REFS -DBENCH_N=$TD -I ../include tree_topstack.cpp -o $B/tree_ts_refchk-gcc

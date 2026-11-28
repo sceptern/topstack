@@ -44,4 +44,4 @@ for f in $W/*; do
 done
 echo "all outputs match Goose"
 echo; echo "== bintrees, depth 19"
-python3 timeit.py ./$B/bt_goose ./$B/bt_ts_u32_gcc ./$B/bt_ts_ptr_gcc ./$B/bt_cpp_vector_gcc $(ls $W/* | sed 's|^|./|')
+python3 timeit.py ./$B/bt_goose ./$B/bt_goose_clang ./$B/bt_ts_u32_gcc ./$B/bt_ts_ptr_gcc ./$B/bt_cpp_vector_gcc $(ls $W/* | sed 's|^|./|')

@@ -27,9 +27,9 @@ echo "all outputs match Goose"
 # Only the programs that exist (Goose's Rust rows need rustc too).
 some() { for f in "$@"; do [ -x "$f" ] && printf './%s ' "$f"; done; }
 echo; echo "== bintrees, depth $D"
-python3 timeit.py $(some $B/bt_goose $B/bt_ts_ref_gcc $B/bt_ts_ref_clang $B/bt_ts_ref16_gcc $B/bt_ts_ref16_clang $B/bt_ts_ptr_gcc $B/bt_ts_ptr_clang $B/bt_rust_arena $R/bintrees_bumpalo)
+python3 timeit.py $(some $B/bt_goose $B/bt_goose_clang $B/bt_goose_varint $B/bt_goose_varint_clang $B/bt_ts_ref_gcc $B/bt_ts_ref_clang $B/bt_ts_ref16_gcc $B/bt_ts_ref16_clang $B/bt_ts_link8_gcc $B/bt_ts_link8_clang $B/bt_ts_ptr_gcc $B/bt_ts_ptr_clang $B/bt_rust_arena $R/bintrees_bumpalo)
 for k in tree interp sexp; do
     case $k in tree) what="depth $TD";; interp) what="depth $ID";; sexp) what="N = $SN";; esac
     echo; echo "== $k, $what"
-    python3 timeit.py $(some $M/${k}_goose $M/${k}_ts-gcc $M/${k}_ts-clang $M/${k}_ts16-gcc $M/${k}_ts16-clang $M/${k}_rust_arena $R/${k}_bumpalo)
+    python3 timeit.py $(some $M/${k}_goose $M/${k}_goose_clang $M/${k}_goose_varint $M/${k}_goose_varint_clang $M/${k}_ts-gcc $M/${k}_ts-clang $M/${k}_ts16-gcc $M/${k}_ts16-clang $M/${k}_ts8-gcc $M/${k}_ts8-clang $M/${k}_rust_arena $R/${k}_bumpalo)
 done

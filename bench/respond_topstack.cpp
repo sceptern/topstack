@@ -3,8 +3,11 @@
 // it as JSON, checksum it, and throw both away. As in Goose, the response is one
 // block: the name and every sku are stored inline, and the items are one array, all
 // made on the thread's plain stack inside a Scope. The rendered JSON goes into a
-// GrowBuf on its own stack. Both are released when the request ends, by the Scope's
-// rewind and the GrowBuf's destructor, with no per-string or per-list free.
+// GrowBuf on the same stack, right after the response: nothing else is allocated there
+// while it grows, so it stays on top, as a Goose local does. (A GrowBuf on a stack of
+// its own would borrow one from the thread's set on every request, which costs about
+// 5% here.) Both are released when the request ends, with no per-string or per-list
+// free.
 #include "bench.h"
 #include <topstack/grow_buf.hpp>
 
@@ -115,7 +118,7 @@ static uint64_t handle(uint64_t seed, long long& len) {
     name_of(r >> 8, *resp);
     resp->nitems = (uint8_t)n;
     resp->items = make_items(r >> 16, n);
-    GrowBuf<char> out;
+    GrowBuf<char> out(topstack::plain_stack());   // right on top of the response, like a Goose local
     render(out, *resp);
     len = (long long)out.size();
     return fnv(out.data(), out.size());

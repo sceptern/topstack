@@ -1,0 +1,399 @@
+topstack comparison, Fri Nov 27 15:43:04 MST 2026
+machine: Linux 6.6.87.2-microsoft-standard-WSL2, 16 cores
+compilers: g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; Ubuntu clang version 18.1.3 (1ubuntu1)
+
+compiling the runtime for gcc 13.3.0
+compiling the runtime for clang 18.1.3
+all outputs match Goose
+
+== bintrees, depth 19
+./bin/cmp/bt_cpp_newdelete_clang   2491.8 ms     65.9 MB
+./bin/cmp/bt_cpp_newdelete_gcc   2268.1 ms     65.6 MB
+./bin/cmp/bt_cpp_vector_clang    499.9 ms     33.9 MB
+./bin/cmp/bt_cpp_vector_gcc    418.6 ms     33.6 MB
+./bin/cmp/bt_goose            271.0 ms     25.5 MB
+./bin/cmp/bt_goose_clang      328.3 ms     25.9 MB
+./bin/cmp/bt_goose_varint     460.3 ms      8.3 MB
+./bin/cmp/bt_goose_varint_clang    537.8 ms      8.3 MB
+./bin/cmp/bt_llvm_clang      1049.6 ms     34.0 MB
+./bin/cmp/bt_llvm_gcc        1021.9 ms     33.8 MB
+./bin/cmp/bt_llvm_reset_clang    982.2 ms     34.0 MB
+./bin/cmp/bt_llvm_reset_gcc    901.3 ms     33.8 MB
+./bin/cmp/bt_pmr_clang        742.7 ms     33.8 MB
+./bin/cmp/bt_pmr_gcc          463.4 ms     33.5 MB
+./bin/cmp/bt_pmr_reuse_clang    692.6 ms     50.1 MB
+./bin/cmp/bt_pmr_reuse_gcc    415.6 ms     49.8 MB
+./bin/cmp/bt_protobuf0_clang   2119.1 ms     34.4 MB
+./bin/cmp/bt_protobuf0_gcc   2236.5 ms     34.0 MB
+./bin/cmp/bt_protobuf1_clang   2086.2 ms     34.4 MB
+./bin/cmp/bt_protobuf1_gcc   2236.3 ms     34.0 MB
+./bin/cmp/bt_protobuf2_clang    757.9 ms     50.6 MB
+./bin/cmp/bt_protobuf2_gcc    640.9 ms     50.2 MB
+./bin/cmp/bt_rust_arena       458.2 ms     25.9 MB
+./bin/cmp/bt_rust_box        2799.2 ms     65.9 MB
+./bin/cmp/bt_threaded_clang    375.9 ms     17.9 MB
+./bin/cmp/bt_threaded_gcc     199.4 ms     17.5 MB
+./bin/cmp/bt_ts_link8_clang    529.3 ms      8.3 MB
+./bin/cmp/bt_ts_link8_gcc     477.0 ms      8.3 MB
+./bin/cmp/bt_ts_ptr_clang     436.6 ms     33.9 MB
+./bin/cmp/bt_ts_ptr_gcc       477.3 ms     33.4 MB
+./bin/cmp/bt_ts_ref16_clang    499.9 ms      9.9 MB
+./bin/cmp/bt_ts_ref16_gcc     491.6 ms      9.5 MB
+./bin/cmp/bt_ts_ref_clang     394.0 ms     17.9 MB
+./bin/cmp/bt_ts_ref_gcc       435.6 ms     17.4 MB
+./bin/cmp/bt_ts_refchk_clang    493.8 ms     17.9 MB
+./bin/cmp/bt_ts_refchk_gcc    462.6 ms     17.4 MB
+./bin/cmp/bt_ts_u32_clang     441.8 ms     17.9 MB
+./bin/cmp/bt_ts_u32_gcc       372.5 ms     17.4 MB
+
+== push, 64000000 items
+./bin/cmp/push_cpp_reserve_clang    600.8 ms    497.9 MB
+./bin/cmp/push_cpp_reserve_gcc    559.8 ms    497.6 MB
+./bin/cmp/push_goose          565.8 ms    497.5 MB
+./bin/cmp/push_goose_clang    556.6 ms    497.9 MB
+./bin/cmp/push_pinned_clang    587.8 ms    497.8 MB
+./bin/cmp/push_pinned_gcc     571.9 ms    497.5 MB
+./bin/cmp/push_rust_reserve    586.7 ms    497.8 MB
+./bin/cmp/push_ts_clang       569.9 ms    497.8 MB
+./bin/cmp/push_ts_gcc         574.4 ms    497.4 MB
+
+all outputs match Goose
+
+== bintrees, pointer nodes
+./bin/cmp/bt_goose            284.7 ms     25.5 MB
+./bin/cmp/bt_goose_clang      340.6 ms     25.9 MB
+./bin/cmp/bt_ts_ptr_gcc       496.8 ms     33.4 MB
+./bin/cmp/bt_ts_ptr_clang     454.8 ms     33.9 MB
+./bin/cmp/bt_ts_u32_gcc       388.1 ms     17.4 MB
+./bin/cmp/bt_llvm_gcc        1034.4 ms     33.8 MB
+./bin/cmp/bt_llvm_clang      1084.6 ms     34.0 MB
+./bin/cmp/bt_llvm_reset_gcc    934.3 ms     33.8 MB
+./bin/cmp/bt_llvm_reset_clang   1006.7 ms     34.0 MB
+
+== push
+./bin/cmp/push_goose          565.8 ms    497.5 MB
+./bin/cmp/push_goose_clang    569.3 ms    497.9 MB
+./bin/cmp/push_ts_gcc         565.6 ms    497.4 MB
+./bin/cmp/push_ts_clang       576.2 ms    497.8 MB
+./bin/cmp/push_pinned_gcc     581.2 ms    497.5 MB
+./bin/cmp/push_pinned_clang    589.9 ms    497.8 MB
+
+mallocs found: mimalloc=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2 jemalloc=/usr/lib/x86_64-linux-gnu/libjemalloc.so tcmalloc=/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4
+all outputs match Goose
+
+== bintrees, depth 19
+./bin/cmp/bt_goose            284.6 ms     25.5 MB
+./bin/cmp/bt_goose_clang      344.2 ms     25.9 MB
+./bin/cmp/bt_ts_u32_gcc       389.4 ms     17.4 MB
+./bin/cmp/bt_ts_ptr_gcc       501.9 ms     33.4 MB
+./bin/cmp/bt_cpp_vector_gcc    439.5 ms     33.6 MB
+./bin/cmp/malloc/cpp_newdelete_clang+glibc   2528.4 ms     65.9 MB
+./bin/cmp/malloc/cpp_newdelete_clang+jemalloc   2436.8 ms     42.0 MB
+./bin/cmp/malloc/cpp_newdelete_clang+mimalloc   1643.7 ms     34.2 MB
+./bin/cmp/malloc/cpp_newdelete_clang+tcmalloc   1987.7 ms     40.6 MB
+./bin/cmp/malloc/cpp_newdelete_gcc+glibc   2397.3 ms     65.6 MB
+./bin/cmp/malloc/cpp_newdelete_gcc+jemalloc   2284.0 ms     41.5 MB
+./bin/cmp/malloc/cpp_newdelete_gcc+mimalloc   1411.0 ms     33.9 MB
+./bin/cmp/malloc/cpp_newdelete_gcc+tcmalloc   1761.1 ms     42.5 MB
+./bin/cmp/malloc/llvm_gcc+glibc   1052.9 ms     33.8 MB
+./bin/cmp/malloc/llvm_gcc+jemalloc    659.4 ms    108.5 MB
+./bin/cmp/malloc/llvm_gcc+mimalloc    500.0 ms     42.1 MB
+./bin/cmp/malloc/llvm_gcc+tcmalloc    472.1 ms     40.5 MB
+./bin/cmp/malloc/pmr_gcc+glibc    482.4 ms     33.5 MB
+./bin/cmp/malloc/pmr_gcc+jemalloc    476.7 ms     36.5 MB
+./bin/cmp/malloc/pmr_gcc+mimalloc    474.2 ms     39.5 MB
+./bin/cmp/malloc/pmr_gcc+tcmalloc    453.2 ms     40.0 MB
+./bin/cmp/malloc/rust_box+glibc   2914.6 ms     65.9 MB
+./bin/cmp/malloc/rust_box+jemalloc   2796.2 ms     41.6 MB
+./bin/cmp/malloc/rust_box+mimalloc   1704.9 ms     34.2 MB
+./bin/cmp/malloc/rust_box+tcmalloc   2169.4 ms     40.9 MB
+
+all outputs match Goose
+
+== tree, depth 24
+./bin/more/tree_cpp0-clang   3135.0 ms   1026.0 MB
+./bin/more/tree_cpp0-gcc     2271.0 ms   1025.6 MB
+./bin/more/tree_cpp1-clang   2617.0 ms   1025.9 MB
+./bin/more/tree_cpp1-gcc     2565.4 ms   1025.6 MB
+./bin/more/tree_cpp2-clang   1190.8 ms    385.9 MB
+./bin/more/tree_cpp2-gcc     1198.9 ms    385.5 MB
+./bin/more/tree_goose        1238.3 ms    385.5 MB
+./bin/more/tree_goose_clang   1275.6 ms    385.9 MB
+./bin/more/tree_goose_varint   1394.1 ms    195.6 MB
+./bin/more/tree_goose_varint_clang   1738.2 ms    196.0 MB
+./bin/more/tree_rust_arena   1371.9 ms    385.8 MB
+./bin/more/tree_rust_box     2427.0 ms   1025.8 MB
+./bin/more/tree_ts-clang     1164.9 ms    386.0 MB
+./bin/more/tree_ts-gcc       1120.0 ms    385.8 MB
+./bin/more/tree_ts16-clang    946.0 ms    259.0 MB
+./bin/more/tree_ts16-gcc      900.2 ms    258.8 MB
+./bin/more/tree_ts8-clang    1353.4 ms    201.9 MB
+./bin/more/tree_ts8-gcc      1087.1 ms    201.5 MB
+./bin/more/tree_ts_refchk-gcc   1234.5 ms    385.8 MB
+
+== interp, depth 24
+./bin/more/interp_cpp0-clang    304.2 ms     96.6 MB
+./bin/more/interp_cpp0-gcc    298.2 ms     96.2 MB
+./bin/more/interp_cpp1-clang    260.2 ms     49.6 MB
+./bin/more/interp_cpp1-gcc    193.8 ms     49.4 MB
+./bin/more/interp_cpp2-clang    211.4 ms     49.6 MB
+./bin/more/interp_cpp2-gcc    191.5 ms     49.4 MB
+./bin/more/interp_goose       107.4 ms     21.8 MB
+./bin/more/interp_goose_clang    115.3 ms     22.1 MB
+./bin/more/interp_goose_varint    100.6 ms     13.0 MB
+./bin/more/interp_goose_varint_clang    131.6 ms     13.4 MB
+./bin/more/interp_rust_arena    199.3 ms     37.2 MB
+./bin/more/interp_rust_box    417.6 ms     96.5 MB
+./bin/more/interp_ts-clang    118.9 ms     22.0 MB
+./bin/more/interp_ts-gcc      102.5 ms     21.6 MB
+./bin/more/interp_ts16-clang    104.1 ms     16.1 MB
+./bin/more/interp_ts16-gcc     97.0 ms     15.8 MB
+./bin/more/interp_ts8-clang     99.9 ms     13.6 MB
+./bin/more/interp_ts8-gcc      93.7 ms     13.2 MB
+./bin/more/interp_ts_refchk-gcc    111.0 ms     21.6 MB
+
+== sexp, N = 300000
+./bin/more/sexp_cpp0-clang   6393.8 ms   1882.9 MB
+./bin/more/sexp_cpp0-gcc     6110.6 ms   1882.6 MB
+./bin/more/sexp_cpp1-clang   2942.7 ms    954.7 MB
+./bin/more/sexp_cpp1-gcc     3564.3 ms    954.4 MB
+./bin/more/sexp_goose        1898.0 ms    370.0 MB
+./bin/more/sexp_goose_clang   1864.5 ms    370.4 MB
+./bin/more/sexp_goose_varint   1772.8 ms    287.5 MB
+./bin/more/sexp_goose_varint_clang   2099.9 ms    287.9 MB
+./bin/more/sexp_rust_arena   2359.0 ms    662.6 MB
+./bin/more/sexp_rust_box     4047.7 ms   1436.2 MB
+./bin/more/sexp_ts-clang     1687.7 ms    378.9 MB
+./bin/more/sexp_ts-gcc       1852.5 ms    378.6 MB
+./bin/more/sexp_ts16-clang   1803.8 ms    323.0 MB
+./bin/more/sexp_ts16-gcc     1762.6 ms    322.8 MB
+./bin/more/sexp_ts_refchk-gcc   1802.4 ms    378.6 MB
+
+all outputs match Goose
+
+== bintrees, depth 19
+./bin/cmp/bt_goose            271.4 ms     25.5 MB
+./bin/cmp/bt_goose_clang      326.0 ms     25.9 MB
+./bin/cmp/bt_goose_varint     455.4 ms      8.4 MB
+./bin/cmp/bt_goose_varint_clang    539.1 ms      8.4 MB
+./bin/cmp/bt_ts_ref_gcc       433.1 ms     17.4 MB
+./bin/cmp/bt_ts_ref_clang     399.1 ms     17.9 MB
+./bin/cmp/bt_ts_ref16_gcc     488.4 ms      9.5 MB
+./bin/cmp/bt_ts_ref16_clang    500.5 ms      9.9 MB
+./bin/cmp/bt_ts_link8_gcc     475.9 ms      8.4 MB
+./bin/cmp/bt_ts_link8_clang    528.3 ms      8.4 MB
+./bin/cmp/bt_ts_ptr_gcc       478.7 ms     33.4 MB
+./bin/cmp/bt_ts_ptr_clang     437.4 ms     33.9 MB
+./bin/cmp/bt_rust_arena       463.9 ms     25.9 MB
+./bin/bump/bintrees_bumpalo    467.2 ms     33.8 MB
+
+== tree, depth 24
+./bin/more/tree_goose        1096.4 ms    385.5 MB
+./bin/more/tree_goose_clang   1298.3 ms    385.9 MB
+./bin/more/tree_goose_varint   1357.2 ms    195.6 MB
+./bin/more/tree_goose_varint_clang   1800.8 ms    196.0 MB
+./bin/more/tree_ts-gcc       1310.8 ms    385.8 MB
+./bin/more/tree_ts-clang     1312.6 ms    386.0 MB
+./bin/more/tree_ts16-gcc      868.8 ms    258.8 MB
+./bin/more/tree_ts16-clang    914.1 ms    259.0 MB
+./bin/more/tree_ts8-gcc      1251.7 ms    201.5 MB
+./bin/more/tree_ts8-clang    1142.4 ms    201.9 MB
+./bin/more/tree_rust_arena   1425.5 ms    385.8 MB
+./bin/bump/tree_bumpalo      2258.9 ms    769.8 MB
+
+== interp, depth 24
+./bin/more/interp_goose       103.9 ms     21.8 MB
+./bin/more/interp_goose_clang    117.4 ms     22.1 MB
+./bin/more/interp_goose_varint     99.0 ms     13.0 MB
+./bin/more/interp_goose_varint_clang    125.9 ms     13.4 MB
+./bin/more/interp_ts-gcc      101.6 ms     21.6 MB
+./bin/more/interp_ts-clang    110.4 ms     22.0 MB
+./bin/more/interp_ts16-gcc     96.5 ms     15.8 MB
+./bin/more/interp_ts16-clang    100.3 ms     16.1 MB
+./bin/more/interp_ts8-gcc      89.5 ms     13.2 MB
+./bin/more/interp_ts8-clang     94.4 ms     13.6 MB
+./bin/more/interp_rust_arena    190.8 ms     37.2 MB
+./bin/bump/interp_bumpalo     287.3 ms     72.8 MB
+
+== sexp, N = 300000
+./bin/more/sexp_goose        1874.6 ms    370.0 MB
+./bin/more/sexp_goose_clang   1928.6 ms    370.4 MB
+./bin/more/sexp_goose_varint   1869.6 ms    287.5 MB
+./bin/more/sexp_goose_varint_clang   2048.1 ms    287.9 MB
+./bin/more/sexp_ts-gcc       1866.5 ms    378.6 MB
+./bin/more/sexp_ts-clang     1841.6 ms    378.9 MB
+./bin/more/sexp_ts16-gcc     1697.2 ms    322.8 MB
+./bin/more/sexp_ts16-clang   1803.0 ms    323.0 MB
+./bin/more/sexp_rust_arena   2262.8 ms    662.6 MB
+./bin/bump/sexp_bumpalo      2196.7 ms    837.9 MB
+
+
+== sum, size 128000000 (all outputs match Goose)
+./bin/suite/sum_cpp0-clang   1307.2 ms    513.6 MB
+./bin/suite/sum_cpp0-gcc     1523.5 ms    513.4 MB
+./bin/suite/sum_cpp1-clang    845.5 ms    490.1 MB
+./bin/suite/sum_cpp1-gcc     1069.7 ms    489.9 MB
+./bin/suite/sum_goose-sum     842.6 ms    489.9 MB
+./bin/suite/sum_goose-sum-clang    845.8 ms    490.1 MB
+./bin/suite/sum_rust-sum      871.0 ms    490.0 MB
+./bin/suite/sum_ts-clang      844.3 ms    490.1 MB
+./bin/suite/sum_ts-gcc        975.4 ms    489.8 MB
+
+== strlist, size 8000000 (all outputs match Goose)
+./bin/suite/strlist_cpp0-clang   1123.8 ms    409.1 MB
+./bin/suite/strlist_cpp0-gcc   1091.0 ms    408.9 MB
+./bin/suite/strlist_cpp1-clang    715.1 ms    256.8 MB
+./bin/suite/strlist_cpp1-gcc    810.4 ms    256.6 MB
+./bin/suite/strlist_cpp2-clang    616.6 ms    192.7 MB
+./bin/suite/strlist_cpp2-gcc    608.0 ms    192.5 MB
+./bin/suite/strlist_goose-strlist    559.2 ms    215.1 MB
+./bin/suite/strlist_goose-strlist-clang    516.8 ms    215.5 MB
+./bin/suite/strlist_rust-strlist_borrowed    566.1 ms    219.2 MB
+./bin/suite/strlist_rust-strlist_owned   1168.7 ms    524.2 MB
+./bin/suite/strlist_ts-clang    522.9 ms    192.5 MB
+./bin/suite/strlist_ts-gcc    519.6 ms    192.1 MB
+
+== records, size 16000000 (all outputs match Goose)
+./bin/suite/records_cpp0-clang   1769.2 ms    734.2 MB
+./bin/suite/records_cpp0-gcc   1682.4 ms    733.9 MB
+./bin/suite/records_cpp1-clang   2183.7 ms    769.6 MB
+./bin/suite/records_cpp1-gcc   2099.7 ms    769.4 MB
+./bin/suite/records_cpp2-clang   1143.0 ms    385.6 MB
+./bin/suite/records_cpp2-gcc   1180.7 ms    385.4 MB
+./bin/suite/records_goose-records_var    538.5 ms    142.8 MB
+./bin/suite/records_goose-records_var-clang    630.5 ms    143.1 MB
+./bin/suite/records_rust-records   1312.8 ms    612.0 MB
+./bin/suite/records_ts-clang    547.8 ms    143.0 MB
+./bin/suite/records_ts-gcc    615.7 ms    142.6 MB
+
+== graph, size 2000000 (all outputs match Goose)
+./bin/suite/graph_cpp0-clang   2966.1 ms    195.6 MB
+./bin/suite/graph_cpp0-gcc   3007.4 ms    195.4 MB
+./bin/suite/graph_cpp1-clang   1656.3 ms    215.5 MB
+./bin/suite/graph_cpp1-gcc   1474.7 ms    215.1 MB
+./bin/suite/graph_cpp2-clang   5037.7 ms    154.4 MB
+./bin/suite/graph_cpp2-gcc   5669.4 ms    154.1 MB
+./bin/suite/graph_goose-graph   5790.1 ms    154.1 MB
+./bin/suite/graph_goose-graph-clang   5443.3 ms    154.5 MB
+./bin/suite/graph_goose-graph_csr   1490.1 ms    215.2 MB
+./bin/suite/graph_goose-graph_csr-clang   1296.3 ms    215.5 MB
+./bin/suite/graph_rust-graph_arena   5656.1 ms    154.2 MB
+./bin/suite/graph_rust-graph_csr   1663.4 ms    215.4 MB
+./bin/suite/graph_rust-graph_nested   2712.2 ms    198.4 MB
+./bin/suite/graph_ts-clang   6089.5 ms    154.4 MB
+./bin/suite/graph_ts-gcc     5654.5 ms    154.0 MB
+
+== words, size 16000000 (all outputs match Goose)
+./bin/suite/words_cpp0-clang   6357.6 ms    518.3 MB
+./bin/suite/words_cpp0-gcc   6366.8 ms    518.0 MB
+./bin/suite/words_cpp1-clang   5406.5 ms    501.4 MB
+./bin/suite/words_cpp1-gcc   5507.7 ms    501.1 MB
+./bin/suite/words_cpp2-clang   3104.3 ms    663.8 MB
+./bin/suite/words_cpp2-gcc   3078.5 ms    663.5 MB
+./bin/suite/words_goose-words   1960.5 ms    529.2 MB
+./bin/suite/words_goose-words-clang   2006.0 ms    529.6 MB
+./bin/suite/words_goose-words_dictionary   2131.1 ms    417.2 MB
+./bin/suite/words_goose-words_dictionary-clang   2119.6 ms    417.6 MB
+./bin/suite/words_rust-words_hashmap   4543.7 ms    551.4 MB
+./bin/suite/words_rust-words_open   2919.1 ms    668.4 MB
+./bin/suite/words_ts-clang   2065.6 ms    451.9 MB
+./bin/suite/words_ts-gcc     2829.5 ms    451.4 MB
+
+== particles, size 4000000 (all outputs match Goose)
+./bin/suite/particles_cpp0-clang   1756.6 ms     93.4 MB
+./bin/suite/particles_cpp0-gcc   1800.5 ms     93.1 MB
+./bin/suite/particles_cpp1-clang   1347.8 ms     93.4 MB
+./bin/suite/particles_cpp1-gcc   1555.4 ms     93.1 MB
+./bin/suite/particles_cpp2-clang   1796.9 ms     93.4 MB
+./bin/suite/particles_cpp2-gcc   1911.7 ms     93.1 MB
+./bin/suite/particles_goose-particles   1845.2 ms     93.5 MB
+./bin/suite/particles_goose-particles-clang   1803.5 ms     93.5 MB
+./bin/suite/particles_goose-particles_scalar   1810.2 ms     93.5 MB
+./bin/suite/particles_goose-particles_scalar-clang   1761.0 ms     93.5 MB
+./bin/suite/particles_rust-particles   1800.0 ms     93.2 MB
+./bin/suite/particles_rust-particles_scalar   1765.7 ms     93.2 MB
+./bin/suite/particles_ts-clang   1757.4 ms     93.4 MB
+./bin/suite/particles_ts-gcc   1788.9 ms     93.0 MB
+
+== lru, size 32000000 (all outputs match Goose)
+./bin/suite/lru_cpp0-clang  10300.4 ms    291.5 MB
+./bin/suite/lru_cpp0-gcc    10143.7 ms    291.2 MB
+./bin/suite/lru_cpp1-clang   3152.9 ms    129.6 MB
+./bin/suite/lru_cpp1-gcc     3503.3 ms    129.4 MB
+./bin/suite/lru_goose-lru    3156.4 ms    126.6 MB
+./bin/suite/lru_goose-lru-clang   3059.0 ms    127.0 MB
+./bin/suite/lru_rust-lru_hashmap   6820.6 ms    165.6 MB
+./bin/suite/lru_rust-lru_open   3219.7 ms    126.9 MB
+./bin/suite/lru_ts-clang     3205.3 ms    126.9 MB
+./bin/suite/lru_ts-gcc       3503.9 ms    126.5 MB
+
+== scene, size 16 (all outputs match Goose)
+./bin/suite/scene_cpp0-clang   1831.3 ms    244.8 MB
+./bin/suite/scene_cpp0-gcc   2116.7 ms    244.5 MB
+./bin/suite/scene_cpp1-clang    908.3 ms    241.6 MB
+./bin/suite/scene_cpp1-gcc   1145.2 ms    241.4 MB
+./bin/suite/scene_goose-scene    891.3 ms    179.5 MB
+./bin/suite/scene_goose-scene-clang    707.4 ms    179.5 MB
+./bin/suite/scene_rust-scene_arena    690.4 ms    183.9 MB
+./bin/suite/scene_rust-scene_box   1517.1 ms    249.5 MB
+./bin/suite/scene_ts-clang    698.6 ms    184.0 MB
+./bin/suite/scene_ts-gcc      885.9 ms    183.5 MB
+
+== calc, size 1600000 (all outputs match Goose)
+./bin/suite/calc_cpp0-clang   2386.0 ms      8.3 MB
+./bin/suite/calc_cpp0-gcc    2307.9 ms      8.3 MB
+./bin/suite/calc_cpp1-clang    694.0 ms      8.3 MB
+./bin/suite/calc_cpp1-gcc     718.2 ms      8.3 MB
+./bin/suite/calc_goose-calc    663.0 ms      8.3 MB
+./bin/suite/calc_goose-calc-clang    674.5 ms      8.3 MB
+./bin/suite/calc_rust-calc_arena    610.5 ms      8.3 MB
+./bin/suite/calc_rust-calc_box   1162.3 ms      8.3 MB
+./bin/suite/calc_ts-clang     673.6 ms      8.3 MB
+./bin/suite/calc_ts-gcc       721.2 ms      8.3 MB
+
+== respond, size 1600000 (all outputs match Goose)
+./bin/suite/respond_cpp0-clang   1041.1 ms      8.4 MB
+./bin/suite/respond_cpp0-gcc   1256.3 ms      8.4 MB
+./bin/suite/respond_cpp1-clang    692.9 ms      8.4 MB
+./bin/suite/respond_cpp1-gcc    732.5 ms      8.4 MB
+./bin/suite/respond_goose-respond    696.7 ms      8.4 MB
+./bin/suite/respond_goose-respond-clang    732.7 ms      8.4 MB
+./bin/suite/respond_goose-respond_stream    544.5 ms      8.4 MB
+./bin/suite/respond_goose-respond_stream-clang    551.3 ms      8.4 MB
+./bin/suite/respond_rust-respond_dto   1436.8 ms      8.4 MB
+./bin/suite/respond_rust-respond_stream    817.7 ms      8.4 MB
+./bin/suite/respond_ts-clang    680.4 ms      8.4 MB
+./bin/suite/respond_ts-gcc    800.4 ms      8.4 MB
+
+== blur, size 8192 (all outputs match Goose)
+./bin/suite/blur_cpp0-clang    627.4 ms    130.1 MB
+./bin/suite/blur_cpp0-gcc    2351.4 ms    129.8 MB
+./bin/suite/blur_cpp1-clang    581.3 ms    129.9 MB
+./bin/suite/blur_cpp1-gcc    2268.6 ms    129.4 MB
+./bin/suite/blur_goose-blur   2593.6 ms    129.5 MB
+./bin/suite/blur_goose-blur-clang    470.5 ms    130.0 MB
+./bin/suite/blur_goose-blur_rows   2484.2 ms    129.5 MB
+./bin/suite/blur_goose-blur_rows-clang    466.3 ms    130.0 MB
+./bin/suite/blur_rust-blur_index    512.6 ms    129.9 MB
+./bin/suite/blur_rust-blur_windows    517.5 ms    129.9 MB
+./bin/suite/blur_ts-clang     748.7 ms    129.9 MB
+./bin/suite/blur_ts-gcc      2733.9 ms    129.5 MB
+
+all outputs match Goose
+
+== bintrees, depth 19: protobuf Arena (0 per tree, 1 Reset, 2 reused buffer)
+./bin/cmp/bt_goose            292.1 ms     25.5 MB
+./bin/cmp/bt_goose_clang      356.0 ms     25.9 MB
+./bin/cmp/bt_ts_ref_gcc       470.5 ms     17.4 MB
+./bin/cmp/bt_ts_ref_clang     431.2 ms     17.9 MB
+./bin/cmp/bt_ts_ptr_gcc       518.7 ms     33.4 MB
+./bin/cmp/bt_ts_ptr_clang     477.0 ms     33.9 MB
+./bin/cmp/bt_pmr_gcc          496.3 ms     33.5 MB
+./bin/cmp/bt_pmr_reuse_gcc    462.8 ms     49.8 MB
+./bin/cmp/bt_llvm_gcc        1070.0 ms     33.8 MB
+./bin/cmp/bt_protobuf0_gcc   2092.1 ms     34.0 MB
+./bin/cmp/bt_protobuf1_gcc   2373.2 ms     34.1 MB
+./bin/cmp/bt_protobuf2_gcc    709.7 ms     50.2 MB
+./bin/cmp/bt_protobuf0_clang   2201.1 ms     34.4 MB
+./bin/cmp/bt_protobuf1_clang   2196.7 ms     34.4 MB
+./bin/cmp/bt_protobuf2_clang    819.2 ms     50.6 MB

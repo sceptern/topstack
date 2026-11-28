@@ -118,10 +118,15 @@ namespace relay {
     };
 
     inline constexpr std::size_t counts_at = std::size_t(4) << 30;
+    inline constexpr std::size_t owner_at  = counts_at - (std::size_t(64) << 10);
     inline constexpr std::size_t dense_at  = counts_at + regions * sizeof(std::uint32_t);
     inline constexpr std::size_t big_at    = dense_at + regions * dense_slots * sizeof(Entry);
     inline constexpr std::size_t big_bytes = slots * sizeof(Entry);
     static_assert(big_at + regions * big_bytes <= os::block_size);
+
+    inline void*& owner(std::uintptr_t block) {
+        return *reinterpret_cast<void**>(block + owner_at);
+    }
 
     inline std::uint32_t* counts(std::uintptr_t block) {
         return reinterpret_cast<std::uint32_t*>(block + counts_at);
@@ -200,8 +205,10 @@ struct MakeResult {
     std::abort();
 }
 
+template <class T, bool Nullable> class BasicLink8;
 class Stack {
     template <class T> friend class GrowBuf;
+    template <class T, bool Nullable> friend class BasicLink8;
     public:
         struct Mark {
             std::size_t top_;
@@ -364,14 +371,16 @@ CreateResult Stack::create(std::size_t size, std::size_t step) {
         return {nullptr, CreateError::SizeTooLarge};
     }
     char* base_address = static_cast<char*>(os::reserve_block());
-    if (!os::commit(base_address + relay::counts_at, relay::big_at - relay::counts_at)) {
-        os::release_block(base_address);
-        return {nullptr, CreateError::ReserveFailed};
-    }
     if (!base_address) {
         return {nullptr, CreateError::ReserveFailed};
     }
-    return {std::unique_ptr<Stack>(new Stack(base_address, size, step)), CreateError::Ok};
+    if (!os::commit(base_address + relay::owner_at, relay::big_at - relay::owner_at)) {
+        os::release_block(base_address);
+        return {nullptr, CreateError::ReserveFailed};
+    }
+    std::unique_ptr<Stack> stack(new Stack(base_address, size, step));
+    relay::owner(reinterpret_cast<std::uintptr_t>(base_address)) = stack.get();
+    return {std::move(stack), CreateError::Ok};
 }
 
 Stack::Stack(char* base, std::size_t reserved, std::size_t step)

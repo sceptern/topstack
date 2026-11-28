@@ -31,7 +31,7 @@ for kind in bt push; do
 done
 echo "all outputs match Goose"
 echo; echo "== bintrees, pointer nodes"
-python3 timeit.py ./$B/bt_goose ./$B/bt_ts_ptr_gcc ./$B/bt_ts_ptr_clang ./$B/bt_ts_u32_gcc \
+python3 timeit.py ./$B/bt_goose ./$B/bt_goose_clang ./$B/bt_ts_ptr_gcc ./$B/bt_ts_ptr_clang ./$B/bt_ts_u32_gcc \
     ./$B/bt_llvm_gcc ./$B/bt_llvm_clang ./$B/bt_llvm_reset_gcc ./$B/bt_llvm_reset_clang
 echo; echo "== push"
-python3 timeit.py ./$B/push_goose ./$B/push_ts_gcc ./$B/push_ts_clang ./$B/push_pinned_gcc ./$B/push_pinned_clang
+python3 timeit.py ./$B/push_goose ./$B/push_goose_clang ./$B/push_ts_gcc ./$B/push_ts_clang ./$B/push_pinned_gcc ./$B/push_pinned_clang

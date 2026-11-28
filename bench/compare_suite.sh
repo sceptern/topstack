@@ -1,7 +1,8 @@
 #!/bin/sh
 # The rest of Goose's benchmark suite (bench/run_bench.py in Goose): every Goose,
 # C++ and Rust version Goose's own runner builds, plus topstack, at Goose's "large"
-# sizes. Every output must match the first Goose version's, or the script stops.
+# sizes, Goose and C++ each built with gcc and with clang. Every output must match the
+# first Goose version's, or the script stops.
 # Run from the bench folder:
 #   ./compare_suite.sh             all benchmarks
 #   ./compare_suite.sh records     just one
@@ -39,7 +40,8 @@ echo "$LIST" | while read -r name n gfiles cvars rfiles tfiles; do
     rm -f $B/${name}_*
     for g in $(echo $gfiles | tr , ' '); do
         sed "s|^\(let [A-Z_]* = \)[0-9]*;\(.*BENCH_N.*\)|\1$n;\2|" "$GB/goose/$g.goose" > $B/$g.goose
-        "$GOOSE" build $B/$g.goose -o $B/${name}_goose-$g > /dev/null
+        "$GOOSE" build --cc gcc $B/$g.goose -o $B/${name}_goose-$g > /dev/null
+        "$GOOSE" build --cc clang $B/$g.goose -o $B/${name}_goose-$g-clang > /dev/null
     done
     cp "$GB/cpp/$name.cpp" $B/          # Goose's C++ version: build-time copy, not part of the repo
     for cxx in g++ clang++; do

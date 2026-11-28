@@ -31,6 +31,6 @@ done
 echo "all outputs match Goose"
 some() { for f in "$@"; do [ -x "$f" ] && printf './%s ' "$f"; done; }
 echo; echo "== bintrees, depth $D: protobuf Arena (0 per tree, 1 Reset, 2 reused buffer)"
-python3 timeit.py $(some $B/bt_goose $B/bt_ts_ref_gcc $B/bt_ts_ref_clang $B/bt_ts_ptr_gcc $B/bt_ts_ptr_clang \
+python3 timeit.py $(some $B/bt_goose $B/bt_goose_clang $B/bt_ts_ref_gcc $B/bt_ts_ref_clang $B/bt_ts_ptr_gcc $B/bt_ts_ptr_clang \
     $B/bt_pmr_gcc $B/bt_pmr_reuse_gcc $B/bt_llvm_gcc $B/bt_protobuf0_gcc $B/bt_protobuf1_gcc \
     $B/bt_protobuf2_gcc $B/bt_protobuf0_clang $B/bt_protobuf1_clang $B/bt_protobuf2_clang)

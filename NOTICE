@@ -28,7 +28,8 @@ bench/LICENSE-goose):
     bench/strlist_topstack.cpp, bench/records_topstack.cpp, bench/graph_topstack.cpp,
     bench/words_topstack.cpp, bench/particles_topstack.cpp, bench/lru_topstack.cpp,
     bench/scene_topstack.cpp, bench/calc_topstack.cpp, bench/respond_topstack.cpp,
-    bench/blur_topstack.cpp
+    bench/blur_topstack.cpp, bench/tree_link8.cpp, bench/interp_link8.cpp,
+    bench/bintrees_link8.cpp
 
 The comparison scripts also copy further Goose sources into bench/bin/ at run
 time; those copies are not part of this repository.

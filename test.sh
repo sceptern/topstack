@@ -18,7 +18,7 @@ run() {
     fi
 }
 
-for t in stack_test grow_buf_test stack_set_test ref_test ref16_test; do
+for t in stack_test grow_buf_test stack_set_test ref_test ref16_test link8_test; do
     echo "== $t"
     g++ $F tests/$t.cpp -o build/$t
     run build/$t
